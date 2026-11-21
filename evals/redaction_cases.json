@@ -1,0 +1,175 @@
+[
+  {
+    "id": "card_with_spaces_expiry_cvv",
+    "form": "written",
+    "text": "Customer: It's 4111 1111 1111 1111, expiry 09/28, CVV 123.",
+    "must_redact": [
+      {"text": "4111 1111 1111 1111", "kind": "CARD_NUMBER"},
+      {"text": "09/28", "kind": "CARD_EXPIRY"},
+      {"text": "123", "kind": "CVV"}
+    ],
+    "must_keep": []
+  },
+  {
+    "id": "card_with_dashes",
+    "form": "written",
+    "text": "Customer: Please charge 5500-0000-0000-0004 instead.",
+    "must_redact": [{"text": "5500-0000-0000-0004", "kind": "CARD_NUMBER"}],
+    "must_keep": []
+  },
+  {
+    "id": "card_no_separators",
+    "form": "written",
+    "text": "Customer: The number is 4111111111111111, expires 11/29.",
+    "must_redact": [
+      {"text": "4111111111111111", "kind": "CARD_NUMBER"},
+      {"text": "11/29", "kind": "CARD_EXPIRY"}
+    ],
+    "must_keep": []
+  },
+  {
+    "id": "order_number_is_not_a_card",
+    "form": "written",
+    "text": "Customer: My order number is 1234 5678 9012 3456.",
+    "must_redact": [],
+    "must_keep": ["1234 5678 9012 3456"],
+    "notes": "Fails the card checksum, so it is not a card number."
+  },
+  {
+    "id": "last_four_only",
+    "form": "written",
+    "text": "Agent: What are the last four digits of the card?\nCustomer: It ends in 4821.",
+    "must_redact": [],
+    "must_keep": ["4821"]
+  },
+  {
+    "id": "ssn_with_dashes",
+    "form": "written",
+    "text": "Customer: Do you need my social? It's 123-45-6789.",
+    "must_redact": [{"text": "123-45-6789", "kind": "SSN"}],
+    "must_keep": []
+  },
+  {
+    "id": "ssn_with_spaces",
+    "form": "written",
+    "text": "Customer: my social is 123 45 6789",
+    "must_redact": [{"text": "123 45 6789", "kind": "SSN"}],
+    "must_keep": []
+  },
+  {
+    "id": "phone_seven_digits",
+    "form": "written",
+    "text": "Customer: You can reach me at 555-0199.",
+    "must_redact": [{"text": "555-0199", "kind": "PHONE"}],
+    "must_keep": []
+  },
+  {
+    "id": "phone_with_area_code",
+    "form": "written",
+    "text": "Customer: Call me at (415) 555-0123 after five, or 415.555.0198 on weekends.",
+    "must_redact": [
+      {"text": "(415) 555-0123", "kind": "PHONE"},
+      {"text": "415.555.0198", "kind": "PHONE"}
+    ],
+    "must_keep": ["after five"]
+  },
+  {
+    "id": "phone_with_country_code",
+    "form": "written",
+    "text": "Customer: My number is +1 415 555 0123.",
+    "must_redact": [{"text": "+1 415 555 0123", "kind": "PHONE"}],
+    "must_keep": []
+  },
+  {
+    "id": "full_email",
+    "form": "written",
+    "text": "Customer: The new address is priya.n@example.com",
+    "must_redact": [{"text": "priya.n@example.com", "kind": "EMAIL"}],
+    "must_keep": []
+  },
+  {
+    "id": "masked_email_kept",
+    "form": "written",
+    "text": "Customer: It's j.m****@example.com, the full one is on file.",
+    "must_redact": [],
+    "must_keep": ["j.m****@example.com"],
+    "notes": "Already masked, so it is left as is."
+  },
+  {
+    "id": "street_addresses",
+    "form": "written",
+    "text": "Customer: My address is 42 Maple Street, Springfield. Actually, send it to 18 Oak Avenue, Portland.",
+    "must_redact": [
+      {"text": "42 Maple Street", "kind": "ADDRESS"},
+      {"text": "18 Oak Avenue", "kind": "ADDRESS"}
+    ],
+    "must_keep": ["Springfield", "Portland"]
+  },
+  {
+    "id": "everyday_numbers_kept",
+    "form": "written",
+    "text": "Customer: I was charged $29 on June 3rd and again on 09/28. I'm on version 4.2.1, Android 14. My ticket is 48213 and the total was $1,234.56.",
+    "must_redact": [],
+    "must_keep": ["$29", "June 3rd", "09/28", "4.2.1", "Android 14", "48213", "$1,234.56"],
+    "notes": "09/28 here is a date, not a card expiry, because nothing says 'expiry'."
+  },
+  {
+    "id": "tracking_number_kept",
+    "form": "written",
+    "text": "Agent: Your tracking number is 1Z999AA10123456784 and it ships to zip 97201.",
+    "must_redact": [],
+    "must_keep": ["1Z999AA10123456784", "97201"]
+  },
+  {
+    "id": "date_of_birth_written",
+    "form": "written",
+    "text": "Agent: Can you confirm your date of birth?\nCustomer: March 3rd, 1990.",
+    "must_redact": [{"text": "March 3rd, 1990", "kind": "DATE_OF_BIRTH"}],
+    "must_keep": [],
+    "notes": "Not covered by regex: a date is only personal data in context."
+  },
+  {
+    "id": "date_of_birth_numeric",
+    "form": "written",
+    "text": "Customer: My DOB is 03/03/1990.",
+    "must_redact": [{"text": "03/03/1990", "kind": "DATE_OF_BIRTH"}],
+    "must_keep": [],
+    "notes": "Not covered by regex."
+  },
+  {
+    "id": "spoken_card_number",
+    "form": "spoken",
+    "text": "Customer: It's four one one one, one one one one, one one one one, one one one one.",
+    "must_redact": [{"text": "four one one one, one one one one, one one one one, one one one one", "kind": "CARD_NUMBER"}],
+    "must_keep": [],
+    "notes": "Speech-to-text often writes digits as words."
+  },
+  {
+    "id": "spoken_phone_number",
+    "form": "spoken",
+    "text": "Customer: My number is five five five, oh one four two.",
+    "must_redact": [{"text": "five five five, oh one four two", "kind": "PHONE"}],
+    "must_keep": []
+  },
+  {
+    "id": "spoken_ssn",
+    "form": "spoken",
+    "text": "Customer: My social is one two three, four five, six seven eight nine.",
+    "must_redact": [{"text": "one two three, four five, six seven eight nine", "kind": "SSN"}],
+    "must_keep": []
+  },
+  {
+    "id": "spoken_address",
+    "form": "spoken",
+    "text": "Customer: I live at forty-two Maple Street in Springfield.",
+    "must_redact": [{"text": "forty-two Maple Street", "kind": "ADDRESS"}],
+    "must_keep": ["Springfield"]
+  },
+  {
+    "id": "spoken_email",
+    "form": "spoken",
+    "text": "Customer: It's priya dot n at example dot com.",
+    "must_redact": [{"text": "priya dot n at example dot com", "kind": "EMAIL"}],
+    "must_keep": []
+  }
+]

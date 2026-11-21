@@ -80,6 +80,30 @@ The full results for both versions are in [`evals/results/`](evals/results/). Ea
 
 **Method notes:** latency was measured with 4 requests in parallel, including network time. Costs use Anthropic's list prices in [`extract.py`](src/callsense/extract.py). With only 32 cases, one case moves a score by about 3 points, so differences of one or two cases between models are within noise.
 
+## Redacting personal data
+
+[`redact.py`](src/callsense/redact.py) masks personal data with placeholders before a transcript is stored or sent anywhere. It runs locally with regular expressions, so it's instant and free:
+
+```text
+Customer: It's 4111 1111 1111 1111, expiry 09/28, CVV 123.
+Customer: It's [CARD_NUMBER], expiry [CARD_EXPIRY], CVV [CVV].
+```
+
+It covers card numbers (with a checksum, so order numbers aren't masked), CVVs and expiry dates when labeled, SSNs, phone numbers, full email addresses and street addresses. Masked values like `j.m****@example.com` and last-four digits are left alone.
+
+Measured on 22 labeled cases ([`evals/redaction_cases.json`](evals/redaction_cases.json)). A miss here is a privacy leak, so **recall** is the headline number:
+
+| | Items fully redacted |
+|---|---|
+| Written formats: cards, CVVs, expiries, SSNs, phones, emails, addresses | **15/15 (100%)** |
+| Dates of birth | 0/2 |
+| Spoken forms ("four one one one…", "priya dot n at example dot com") | 0/5 |
+| Safe strings kept (prices, dates, versions, order and tracking numbers) | **16/16 (100%)** |
+
+On the 32 call transcripts, it flags 7 of the 8 that contain personal data (the miss is a date of birth) and none of the other 24.
+
+**The gap is context.** A date is only personal data when it's someone's birth date, and speech-to-text often writes numbers as words. Regex can't handle either, which is where a model-based second pass would come in. A CI test fails if a change makes the redactor leak any written-format item it catches today or remove a safe string.
+
 ## How it works
 
 ```text
@@ -122,6 +146,13 @@ uv run python -m callsense.evaluate --split test  # held-out cases only
 uv run python -m callsense.evaluate --model claude-sonnet-5-5
 ```
 
+Redact a transcript, and measure the redactor (both free, no API calls):
+
+```bash
+echo "Call me at (415) 555-0123" | uv run python -m callsense.redact
+uv run python -m callsense.evaluate_redaction
+```
+
 Run the unit tests (free: they use a fake Claude client and need no API key):
 
 ```bash
@@ -152,8 +183,11 @@ src/callsense/
   extract.py    Claude call with structured output; tokens, cost, latency
   evaluate.py   Eval runner with per-field, per-split accuracy
   compare.py    Runs the eval across models and saves a comparison
+  redact.py     Regex redaction of personal data
+  evaluate_redaction.py  Redaction recall and false-positive check
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)
+  redaction_cases.json   22 labeled redaction cases (written and spoken)
   results/      Saved model comparison results
 tests/          Unit tests with a fake Claude client, run by GitHub Actions on every push
 ```
@@ -162,12 +196,12 @@ tests/          Unit tests with a fake Claude client, run by GitHub Actions on e
 
 - All transcripts are synthetic and short; real calls are longer, messier, and come from speech-to-text with errors.
 - 32 cases is a small eval: one case moves a split's score by 5–7 points.
-- `pii_mentioned` only detects personal data; it does not yet redact it.
+- Redaction misses dates of birth and anything spoken as words, and it only covers US formats.
 
 ## Next steps
 
 - Have a second person label the sentiment cases to measure how often humans disagree on them.
 - Compare effort levels, and a local open-source model, on the same eval.
-- Redact personal data from transcripts before storage.
+- Add a model-based second redaction pass for dates of birth and spoken forms, measured on the same cases.
 - Grow the eval with longer, noisier transcripts.
 - A small web UI to paste a transcript and see the analysis.
