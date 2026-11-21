@@ -40,29 +40,41 @@ All three current Claude models were run on the same 32 synthetic, hand-labeled 
 
 | Model | Every field correct | Dev (18) | Held-out test (14) | Cost per 1,000 calls | Latency p50 / p95 |
 |---|---|---|---|---|---|
-| Haiku 5.5 | 25/32 (78%) | 14 | 11 | **$0.23** | 1.9s / 3.2s |
-| Sonnet 5.5 | 29/32 (91%) | 15–16 | 13–14 | $3.73 | 2.1s / 2.6s |
-| Opus 5.5 | **30/32 (94%)** | 16 | **14** | $7.99 | 2.4s / 3.4s |
+| Haiku 5.5 | 25–26/32 (80%) | 13–14 | 12 | **$0.22** | 1.7s / 3.2s |
+| Sonnet 5.5 | 29–30/32 (92%) | 16 | 13–14 | $3.73 | 2.1s / 2.4s |
+| Opus 5.5 | **30/32 (94%)** | 16 | **14** | $8.04 | 2.4s / 3.4s |
 
 Scores were identical across both runs except where a range is shown.
 
 | Field (mean of both runs) | Haiku 5.5 | Sonnet 5.5 | Opus 5.5 |
 |---|---|---|---|
 | Issue category | 97% | 97% | 94% |
-| Customer sentiment | 83% | 94% | 100% |
+| Customer sentiment | 81% | 97% | 100% |
 | Resolved | 98% | 100% | 100% |
-| Follow-up required | 95% | 100% | 100% |
+| Follow-up required | 98% | 98% | 100% |
 | Personal data mentioned | 100% | 100% | 100% |
 
 ### What this shows
 
-- **Opus is the most accurate.** It got every held-out test case right in both runs, and it costs about 35 times as much per call as Haiku.
-- **Sonnet nearly matches Opus at under half the cost.** It's the best default when accuracy matters.
-- **Haiku's gap is almost all sentiment.** Its new misses are calm or mildly unhappy endings ("Fine.", "Okay, I'll take pictures tonight") labeled as negative. Sentiment is the only field without a written definition. Writing one and re-checking on dev cases is a cheap experiment to run before paying for a larger model.
+- **Opus is the most accurate.** It got every held-out test case right in both runs, and it costs about 36 times as much per call as Haiku.
+- **Sonnet nearly matches Opus at under half the cost.** It's the best default when sentiment matters.
+- **Haiku's gap is almost all sentiment.** On the other four fields Haiku scores 97–100%, close to the larger models. Its sentiment misses are borderline endings, such as "Fine." read as negative or "Great, thank you." read as neutral. If a customer mainly needs issue routing, resolution tracking and personal-data flags, Haiku does that at about 1/17 of Sonnet's cost.
 - **Latency doesn't separate them.** All three answer in about 2–3 seconds per call for this task.
-- **Volume decides the cost question.** At 100,000 calls a month, this costs about $23 on Haiku, $373 on Sonnet, or $799 on Opus.
+- **Volume decides the cost question.** At 100,000 calls a month, this costs about $22 on Haiku, $373 on Sonnet, or $804 on Opus.
 
-The full results are in [`evals/results/`](evals/results/). The whole comparison cost $0.77.
+### Did a written sentiment definition help?
+
+Sentiment was originally the only field without a written definition. One was added (judge the customer's last few turns, with rules for positive, neutral and negative), written from dev-case labels only, and every model was re-run:
+
+| Every field correct | Without definition | With definition |
+|---|---|---|
+| Haiku 5.5 | 25, 25 | 27, 27, 26, 25 (4 runs) |
+| Sonnet 5.5 | 29, 29 | 29, 30 |
+| Opus 5.5 | 30, 30 | 30, 30 |
+
+Haiku's gain of about one case is within its run-to-run variation, so the definition didn't reliably close the gap. Haiku's sentiment errors look like a model limit on borderline cases rather than a missing rule. The definition stays anyway: it documents the labeling rules for human reviewers, and it didn't hurt any model.
+
+The full results for both versions are in [`evals/results/`](evals/results/). Each comparison cost $0.77.
 
 **Method notes:** latency was measured with 4 requests in parallel, including network time. Costs use Anthropic's list prices in [`extract.py`](src/callsense/extract.py). With only 32 cases, one case moves a score by about 3 points, so differences of one or two cases between models are within noise.
 
@@ -86,7 +98,7 @@ The eval ([`evaluate.py`](src/callsense/evaluate.py), cases in [`evals/cases.jso
 - **Repeated runs.** Model output varies between runs, so results were checked across several runs rather than one.
 - **Hard cases on purpose.** The set includes a refund that was denied, an outage, a customer who calms down by the end of the call, an SSN shared without being asked, and masked versus unmasked personal data.
 
-Iterating on the definitions took Haiku's dev score from 5/8 to 17/18 in an earlier version that used forced tool calls instead of structured output. Most early misses were caused by vague definitions or mislabeled cases, not by the model. Switching to structured output (needed because Sonnet 5.5 and Opus 5.5 don't accept forced tool calls) fixed Haiku's *resolved* and *follow-up* misses but exposed the undefined sentiment field.
+Iterating on the definitions took Haiku's dev score from 5/8 to 17/18 in an earlier version that used forced tool calls instead of structured output. Most early misses were caused by vague definitions or mislabeled cases, not by the model. Switching to structured output (needed because Sonnet 5.5 and Opus 5.5 don't accept forced tool calls) fixed Haiku's *resolved* and *follow-up* misses but exposed its weakness on sentiment.
 
 ## Run it
 
@@ -145,7 +157,7 @@ evals/
 
 ## Next steps
 
-- Write a sentiment definition and check whether it closes Haiku's gap to Sonnet.
+- Have a second person label the sentiment cases to measure how often humans disagree on them.
 - Compare effort levels, and a local open-source model, on the same eval.
 - Redact personal data from transcripts before storage.
 - Grow the eval with longer, noisier transcripts.

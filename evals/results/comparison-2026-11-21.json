@@ -5,17 +5,17 @@
     "runs": 2,
     "cases": 32,
     "exact_per_run": [
-      25,
+      26,
       25
     ],
     "split_exact_per_run": {
       "dev": [
         14,
-        14
+        13
       ],
       "test": [
-        11,
-        11
+        12,
+        12
       ]
     },
     "split_sizes": {
@@ -24,16 +24,16 @@
     },
     "field_accuracy": {
       "issue_category": 0.96875,
-      "customer_sentiment": 0.828125,
+      "customer_sentiment": 0.8125,
       "resolved": 0.984375,
-      "follow_up_required": 0.953125,
+      "follow_up_required": 0.984375,
       "pii_mentioned": 1.0
     },
-    "cost_per_call_usd": 0.0002330765625,
-    "cost_per_1000_calls_usd": 0.2330765625,
-    "output_tokens_per_call": 224.640625,
-    "latency_p50_s": 1.9355944269991596,
-    "latency_p95_s": 3.196121395998489
+    "cost_per_call_usd": 0.0002229515625,
+    "cost_per_1000_calls_usd": 0.22295156249999998,
+    "output_tokens_per_call": 204.390625,
+    "latency_p50_s": 1.7178043227486341,
+    "latency_p95_s": 3.174139603997901
   },
   {
     "model": "claude-sonnet-5-5",
@@ -42,16 +42,16 @@
     "cases": 32,
     "exact_per_run": [
       29,
-      29
+      30
     ],
     "split_exact_per_run": {
       "dev": [
-        15,
+        16,
         16
       ],
       "test": [
-        14,
-        13
+        13,
+        14
       ]
     },
     "split_sizes": {
@@ -60,16 +60,16 @@
     },
     "field_accuracy": {
       "issue_category": 0.96875,
-      "customer_sentiment": 0.9375,
+      "customer_sentiment": 0.96875,
       "resolved": 1.0,
-      "follow_up_required": 1.0,
+      "follow_up_required": 0.984375,
       "pii_mentioned": 1.0
     },
-    "cost_per_call_usd": 0.00373465625,
-    "cost_per_1000_calls_usd": 3.73465625,
-    "output_tokens_per_call": 131.953125,
-    "latency_p50_s": 2.148556957999972,
-    "latency_p95_s": 2.5678024165026727
+    "cost_per_call_usd": 0.0037330937500000003,
+    "cost_per_1000_calls_usd": 3.73309375,
+    "output_tokens_per_call": 131.796875,
+    "latency_p50_s": 2.1405389272476896,
+    "latency_p95_s": 2.44905564599685
   },
   {
     "model": "claude-opus-5-5",
@@ -101,10 +101,10 @@
       "follow_up_required": 1.0,
       "pii_mentioned": 1.0
     },
-    "cost_per_call_usd": 0.007992125,
-    "cost_per_1000_calls_usd": 7.992124999999999,
-    "output_tokens_per_call": 158.09375,
-    "latency_p50_s": 2.3965015107496583,
-    "latency_p95_s": 3.41327616649869
+    "cost_per_call_usd": 0.0080368125,
+    "cost_per_1000_calls_usd": 8.0368125,
+    "output_tokens_per_call": 160.328125,
+    "latency_p50_s": 2.3527811357489554,
+    "latency_p95_s": 3.446050312999432
   }
 ]

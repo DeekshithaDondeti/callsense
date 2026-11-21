@@ -33,7 +33,17 @@ class CallAnalysis(BaseModel):
             "other: anything else, including how-to and feature questions where nothing is broken."
         )
     )
-    customer_sentiment: Sentiment = Field(description="Customer's overall sentiment at the end of the call.")
+    customer_sentiment: Sentiment = Field(
+        description=(
+            "How the customer feels in their last few turns of the call, not at the start. "
+            "positive: the customer expresses satisfaction, relief, gratitude with enthusiasm, or praise "
+            "(for example 'that's great', 'wonderful, thank you so much'). "
+            "neutral: calm or matter-of-fact acceptance, including mild disappointment without complaint and "
+            "routine politeness (for example 'alright', 'okay, I'll do that', 'oh well, thanks anyway'). "
+            "negative: the customer voices frustration, annoyance, complaint, or a threat in their closing turns, "
+            "including grudging acceptance right after complaining (for example 'this is so annoying, fine')."
+        )
+    )
     resolved: bool = Field(
         description=(
             "True if, by the end of the call, the customer's problem is fixed or the agent has completed every "
