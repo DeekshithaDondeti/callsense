@@ -1,0 +1,205 @@
+[
+  {
+    "id": "billing_duplicate_charge_resolved",
+    "split": "dev",
+    "transcript": "Agent: Thanks for calling, how can I help?\nCustomer: I was charged twice for my June subscription.\nAgent: I'm sorry about that. Let me check your account. I can see two charges of $29 on June 3rd. I'll refund one now.\nCustomer: Great, how long will it take?\nAgent: It should appear in 3 to 5 business days. You'll get an email confirmation.\nCustomer: Okay, thanks, that's a relief.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false},
+    "label_notes": "Refund was issued on the call; the refund posting and confirmation email are automatic, so no follow-up."
+  },
+  {
+    "id": "technical_app_crash_unresolved",
+    "split": "dev",
+    "transcript": "Customer: The app keeps crashing when I open the photo gallery.\nAgent: Which version are you on?\nCustomer: 4.2.1, on Android 14.\nAgent: Thanks. Please clear the app cache and try again.\nCustomer: I did that, still crashing. This is so frustrating.\nAgent: I understand. I've escalated this to our engineering team. They'll contact you within two days.\nCustomer: Fine. Two days, then.",
+    "expected": {"issue_category": "technical", "customer_sentiment": "negative", "resolved": false, "follow_up_required": true, "pii_mentioned": false}
+  },
+  {
+    "id": "account_password_reset_resolved",
+    "split": "dev",
+    "transcript": "Customer: I'm locked out of my account.\nAgent: I can help with that. Can you confirm the email on the account?\nCustomer: It's j.m****@example.com. Sorry, that's the masked one, the full one is on file.\nAgent: No problem, I've sent a reset link to the email on file.\nCustomer: Got it, I just logged in. Thanks, that worked.\nAgent: Glad to help. Have a good day.",
+    "expected": {"issue_category": "account", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "shipping_lost_package_follow_up",
+    "split": "dev",
+    "transcript": "Customer: My order from last week still hasn't arrived. The tracking hasn't moved in five days.\nAgent: I'm sorry. I see the package is held at a regional depot. I'm filing a trace request with the carrier.\nCustomer: How long does that take?\nAgent: Usually 48 hours. If nothing turns up, we'll send a replacement at no cost. I'll email you the case number.\nCustomer: Okay. I'll wait for the email.",
+    "expected": {"issue_category": "shipping", "customer_sentiment": "neutral", "resolved": false, "follow_up_required": true, "pii_mentioned": false}
+  },
+  {
+    "id": "cancellation_retention_declined",
+    "split": "dev",
+    "transcript": "Customer: I want to cancel my premium plan.\nAgent: I'm sorry to hear that. Would a 30 percent discount for three months change your mind?\nCustomer: No, I've already decided. Just cancel it.\nAgent: Understood. Your plan will end at the close of the billing period on July 31.\nCustomer: Fine.",
+    "expected": {"issue_category": "cancellation", "customer_sentiment": "neutral", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "billing_customer_reads_card_number",
+    "split": "dev",
+    "transcript": "Customer: My card was declined. Can you check it?\nAgent: Sure, please read me the card number.\nCustomer: It's 4111 1111 1111 1111, expiry 09/28, CVV 123.\nAgent: Thank you. The card issuer is blocking the transaction. Please try a different card or contact your bank.\nCustomer: Ugh, okay. I'll call the bank.\nAgent: Is there anything else?\nCustomer: No, that's all.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "negative", "resolved": false, "follow_up_required": true, "pii_mentioned": true}
+  },
+  {
+    "id": "other_feature_question_resolved",
+    "split": "dev",
+    "transcript": "Customer: Hi, does your software support exporting to CSV?\nAgent: Yes, go to Reports, then click Export and choose CSV.\nCustomer: Found it. Perfect.\nAgent: Anything else I can help with?\nCustomer: No, thanks.",
+    "expected": {"issue_category": "other", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false},
+    "label_notes": "How-to question about an existing feature; nothing is broken, so 'other' rather than 'technical'."
+  },
+  {
+    "id": "shipping_wrong_item_pii_address",
+    "split": "dev",
+    "transcript": "Customer: I received the blue jacket but I ordered the black one.\nAgent: I'm sorry about that. I'll send a return label and ship the black one out today.\nCustomer: My address is 42 Maple Street, Springfield, and my phone is 555-0142.\nAgent: Got it, I've updated the address. You'll get a return label by email within an hour.\nCustomer: Great, thank you.",
+    "expected": {"issue_category": "shipping", "customer_sentiment": "positive", "resolved": true, "follow_up_required": true, "pii_mentioned": true},
+    "label_notes": "Borderline: the agent commits to shipping the replacement today but the transcript never confirms it shipped. Labeled resolved; the model consistently reads it as unresolved, which is defensible. The customer must still return the wrong jacket, so follow-up."
+  },
+  {
+    "id": "billing_price_increase_explained",
+    "split": "dev",
+    "transcript": "Customer: Why did my bill go from $10 to $12 this month?\nAgent: Our standard plan price changed on March 1st. We emailed all customers about it in January.\nCustomer: I must have missed that. Is there anything cheaper?\nAgent: The annual plan works out to $10 a month if you pay yearly, but the monthly plan is now $12.\nCustomer: Okay, I'll stay on monthly. I understand now.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "neutral", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "technical_known_outage",
+    "split": "dev",
+    "transcript": "Customer: Your dashboard keeps showing an error 500. I can't get any work done.\nAgent: I'm sorry. We have a service outage affecting dashboards right now. Our engineers are working on it and expect it fixed within two hours.\nCustomer: Is there anything I can do in the meantime?\nAgent: Unfortunately not. Your data is safe; it's only the dashboard that's down.\nCustomer: Fine, I'll wait. But this is the second outage this month.",
+    "expected": {"issue_category": "technical", "customer_sentiment": "negative", "resolved": false, "follow_up_required": true, "pii_mentioned": false},
+    "label_notes": "The fix depends on the engineering team, so unresolved with follow-up."
+  },
+  {
+    "id": "account_update_full_email",
+    "split": "dev",
+    "transcript": "Customer: I'd like to change the email on my account.\nAgent: Sure. What's the new address?\nCustomer: priya.n@example.com\nAgent: Thanks. Done, your account email is now priya.n@example.com.\nCustomer: Perfect, thank you.",
+    "expected": {"issue_category": "account", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": true},
+    "label_notes": "Full unmasked email address counts as personal data."
+  },
+  {
+    "id": "cancellation_saved_by_discount",
+    "split": "dev",
+    "transcript": "Customer: I'd like to cancel. It's just too expensive for me right now.\nAgent: I understand. I can offer you 50 percent off for the next three months if you'd like to stay.\nCustomer: Oh, really? Okay, that works. Let's do that.\nAgent: Great, the discount is applied starting with your next bill.\nCustomer: Thanks, I appreciate it.",
+    "expected": {"issue_category": "cancellation", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "shipping_damaged_item_needs_photos",
+    "split": "dev",
+    "transcript": "Customer: My lamp arrived with the base cracked.\nAgent: I'm sorry to hear that. Could you email photos of the damage and the box to our support address? Once we have them we can approve a replacement.\nCustomer: Okay, I'll take pictures tonight.\nAgent: Thank you. I've noted the case on your order.",
+    "expected": {"issue_category": "shipping", "customer_sentiment": "neutral", "resolved": false, "follow_up_required": true, "pii_mentioned": false},
+    "label_notes": "Replacement depends on the customer sending photos, so unresolved with follow-up."
+  },
+  {
+    "id": "billing_late_fee_last_four_only",
+    "split": "dev",
+    "transcript": "Customer: I was charged a late fee but I paid on time.\nAgent: Let me verify your account. What are the last four digits of the card on file?\nCustomer: It ends in 4821.\nAgent: Thank you. I see your payment posted a day late because of a bank holiday. I've removed the $5 late fee.\nCustomer: Great, thanks so much.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false},
+    "label_notes": "Last four digits only is partial, so not personal data."
+  },
+  {
+    "id": "technical_popup_blocker_fixed",
+    "split": "dev",
+    "transcript": "Customer: When I click Download Invoice in Safari, nothing happens.\nAgent: That usually means Safari is blocking the pop-up. Can you open Safari settings, go to Websites, then Pop-up Windows, and allow our site?\nCustomer: Okay... done. Let me try again. Yes, it downloaded!\nAgent: Great.\nCustomer: Thanks, that was easy.",
+    "expected": {"issue_category": "technical", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "account_dob_verification",
+    "split": "dev",
+    "transcript": "Customer: My account got locked after too many login attempts.\nAgent: I can unlock it after verifying your identity. Can you confirm your date of birth?\nCustomer: March 3rd, 1990.\nAgent: Thank you, that matches. Your account is unlocked now.\nCustomer: Thank you!",
+    "expected": {"issue_category": "account", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": true}
+  },
+  {
+    "id": "other_student_discount_question",
+    "split": "dev",
+    "transcript": "Customer: Do you offer a student discount?\nAgent: We don't have a student discount at the moment. The annual plan is our lowest price, at about 15 percent off monthly.\nCustomer: Hm, that's a bit disappointing. Okay, thanks for letting me know.",
+    "expected": {"issue_category": "other", "customer_sentiment": "neutral", "resolved": true, "follow_up_required": false, "pii_mentioned": false},
+    "label_notes": "Question fully answered on the call, so resolved even though the answer was no."
+  },
+  {
+    "id": "shipping_address_change_before_dispatch",
+    "split": "dev",
+    "transcript": "Customer: I just placed an order but I need it sent to my new place.\nAgent: No problem, it hasn't shipped yet. What's the new address?\nCustomer: 18 Oak Avenue, Portland.\nAgent: Updated. Your order will go to 18 Oak Avenue, Portland.\nCustomer: Great, thank you.",
+    "expected": {"issue_category": "shipping", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": true}
+  },
+
+  {
+    "id": "test_billing_refund_denied",
+    "split": "test",
+    "transcript": "Customer: I want a refund for my annual plan. I've barely used it.\nAgent: I'm sorry, but our policy only allows refunds within 30 days of purchase, and your plan started eight months ago.\nCustomer: That's ridiculous. Can't you make an exception?\nAgent: I'm afraid I can't. I can cancel auto-renewal so you're not charged next year.\nCustomer: Don't bother. I'm going to dispute the charge with my bank.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "negative", "resolved": false, "follow_up_required": true, "pii_mentioned": false}
+  },
+  {
+    "id": "test_technical_sync_fixed",
+    "split": "test",
+    "transcript": "Customer: My calendar stopped syncing between my phone and laptop.\nAgent: Let's try signing out of the app on your phone and signing back in.\nCustomer: Okay, signed back in... the events are showing up now.\nAgent: Great, sync is working again.\nCustomer: Awesome, thanks!",
+    "expected": {"issue_category": "technical", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "test_account_2fa_lost_phone",
+    "split": "test",
+    "transcript": "Customer: I got a new phone and now I can't get my two-factor codes.\nAgent: For security, we need to verify your identity before resetting two-factor. I've texted you a secure link. Please upload a photo of your ID there, and we'll reset it within 24 hours.\nCustomer: Okay, I'll do that this afternoon.\nAgent: Thank you for your patience.",
+    "expected": {"issue_category": "account", "customer_sentiment": "neutral", "resolved": false, "follow_up_required": true, "pii_mentioned": false}
+  },
+  {
+    "id": "test_shipping_weather_delay",
+    "split": "test",
+    "transcript": "Customer: My package was supposed to arrive yesterday.\nAgent: Let me look. It's been delayed by a storm in the carrier's hub, but it's moving again and is now scheduled for Thursday.\nCustomer: Okay, as long as it's on the way.\nAgent: It is. You'll get tracking updates by email.\nCustomer: Alright, thanks.",
+    "expected": {"issue_category": "shipping", "customer_sentiment": "neutral", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "test_cancellation_angry",
+    "split": "test",
+    "transcript": "Customer: Cancel my subscription. Your service has been terrible.\nAgent: I'm sorry to hear that. I've cancelled it; you won't be charged again.\nCustomer: Good. I should have done this months ago.",
+    "expected": {"issue_category": "cancellation", "customer_sentiment": "negative", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "test_billing_ssn_overshare",
+    "split": "test",
+    "transcript": "Customer: I'd like to set up a payment plan for my overdue balance.\nAgent: Sure, I can help with that.\nCustomer: Do you need my social? It's 123-45-6789.\nAgent: We don't need that, but thank you. I've set up three monthly payments of $40, charged automatically to your card on file.\nCustomer: Great, thanks for setting that up.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": true}
+  },
+  {
+    "id": "test_other_partnership_inquiry",
+    "split": "test",
+    "transcript": "Caller: Hi, I run a small IT consultancy and I'm interested in reselling your product.\nAgent: Thanks for your interest. I'll pass your details to our partnerships team. They'll email you within a week.\nCaller: Sounds good.",
+    "expected": {"issue_category": "other", "customer_sentiment": "neutral", "resolved": false, "follow_up_required": true, "pii_mentioned": false}
+  },
+  {
+    "id": "test_technical_data_loss_callback",
+    "split": "test",
+    "transcript": "Customer: After the last update, all my notes from this week are gone.\nAgent: I'm really sorry. I can't restore them from here, so I'm escalating this to our tier 2 team. They'll call you back today.\nCustomer: You can reach me at 555-0199. Please hurry, those notes were for work.\nAgent: I've added that to the ticket.",
+    "expected": {"issue_category": "technical", "customer_sentiment": "negative", "resolved": false, "follow_up_required": true, "pii_mentioned": true}
+  },
+  {
+    "id": "test_shipping_wrong_address_customer_error",
+    "split": "test",
+    "transcript": "Customer: My package was delivered to my old address. I forgot to update it.\nAgent: I'm sorry. Since it's already delivered, we can't redirect it. You'll need to contact the carrier or the current residents at that address.\nCustomer: Great. That's going to be a pain.",
+    "expected": {"issue_category": "shipping", "customer_sentiment": "negative", "resolved": false, "follow_up_required": true, "pii_mentioned": false}
+  },
+  {
+    "id": "test_billing_promo_code_credit",
+    "split": "test",
+    "transcript": "Customer: My promo code didn't apply at checkout.\nAgent: Sorry about that. I've added a $15 credit to your account to cover it. It'll apply to your next bill.\nCustomer: Oh nice, thank you!",
+    "expected": {"issue_category": "billing", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "test_account_display_name_change",
+    "split": "test",
+    "transcript": "Customer: How do I change my display name?\nAgent: I can do it for you. What would you like it to be?\nCustomer: Sam K.\nAgent: Done, your display name is now Sam K.\nCustomer: Thanks!",
+    "expected": {"issue_category": "account", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false}
+  },
+  {
+    "id": "test_billing_new_card_full_number",
+    "split": "test",
+    "transcript": "Customer: My card expired and my payment failed. I want to add a new one.\nAgent: Sure, go ahead with the card number.\nCustomer: 5500 0000 0000 0004, expiry 11/29.\nAgent: Thank you. The card is updated and your payment went through.\nCustomer: Perfect, thanks.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": true}
+  },
+  {
+    "id": "test_shipping_return_pending_inspection",
+    "split": "test",
+    "transcript": "Customer: I returned my headphones two weeks ago. Where's my refund?\nAgent: Your return arrived at our warehouse yesterday. Our team inspects returns within 3 to 5 days, and the refund is issued once the inspection is done.\nCustomer: Okay, so I just wait?\nAgent: That's right.\nCustomer: Fine.",
+    "expected": {"issue_category": "billing", "customer_sentiment": "neutral", "resolved": false, "follow_up_required": true, "pii_mentioned": false},
+    "label_notes": "The customer is asking about a refund, which the definitions put under billing (originally mislabeled as shipping; corrected because the label contradicted the written definition, not to match the model). The refund depends on the warehouse team inspecting the return, which is a person acting, not an automatic process."
+  },
+  {
+    "id": "test_technical_sentiment_shift",
+    "split": "test",
+    "transcript": "Customer: This is the third time your app has crashed while I'm trying to pay! I'm sick of it!\nAgent: I'm sorry. Which version are you on?\nCustomer: I don't know, whatever it is.\nAgent: There was a payment bug in older versions. Could you update the app from the store and try again?\nCustomer: Okay... updated. It worked this time. Wow, thank you so much, sorry for yelling.\nAgent: No problem at all.",
+    "expected": {"issue_category": "technical", "customer_sentiment": "positive", "resolved": true, "follow_up_required": false, "pii_mentioned": false},
+    "label_notes": "Sentiment is judged at the end of the call."
+  }
+]
