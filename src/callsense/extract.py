@@ -1,28 +1,49 @@
+import time
 from dataclasses import dataclass
 
 import anthropic
 from dotenv import load_dotenv
-from pydantic import ValidationError
 
 from callsense.schema import CallAnalysis
 
-MODEL = "claude-haiku-5-5"
-TOOL_NAME = "record_call_analysis"
-MAX_ATTEMPTS = 2
+DEFAULT_MODEL = "claude-haiku-5-5"
+
+# USD per million tokens (input, output): Anthropic first-party API list prices, prompts under 100K tokens.
+# Check https://www.anthropic.com/pricing before relying on these.
+MODEL_PRICES = {
+    "claude-haiku-5-5": (0.10, 0.50),
+    "claude-sonnet-5-5": (2.00, 10.00),
+    "claude-opus-5-5": (4.00, 20.00),
+}
+
+# Generous ceiling: thinking tokens count toward max_tokens on these models.
+MAX_TOKENS = 16000
 
 SYSTEM_PROMPT = (
     "You analyze customer support call transcripts. "
-    "Fill in every field of the analysis tool based only on what is stated in the transcript. "
+    "Fill in every field based only on what is stated in the transcript, following each field's definition exactly. "
     "Do not invent facts that are not in the transcript."
 )
 
+
 @dataclass
 class Usage:
-    """Token usage summed across every API call (including retries) for one transcript."""
+    """Token usage, latency, and cost for one transcript."""
 
+    model: str
     input_tokens: int = 0
     output_tokens: int = 0
     api_calls: int = 0
+    latency_s: float = 0.0
+
+    @property
+    def cost_usd(self) -> float:
+        input_price, output_price = MODEL_PRICES.get(self.model, (0.0, 0.0))
+        return (self.input_tokens * input_price + self.output_tokens * output_price) / 1_000_000
+
+
+class ExtractionError(RuntimeError):
+    pass
 
 
 _client: anthropic.Anthropic | None = None
@@ -36,48 +57,43 @@ def get_client() -> anthropic.Anthropic:
     return _client
 
 
-def analyze_call(transcript: str) -> tuple[CallAnalysis, Usage]:
-    """Return the validated analysis and total token usage for one transcript.
+def analyze_call(
+    transcript: str,
+    model: str = DEFAULT_MODEL,
+    effort: str | None = None,
+) -> tuple[CallAnalysis, Usage]:
+    """Return the validated analysis and usage for one transcript.
 
-    Uses forced tool use so the model returns JSON matching CallAnalysis's schema.
-    Retries once with the validation error if the output does not parse.
+    Uses structured outputs, so the model's response is constrained to CallAnalysis's JSON schema
+    and parsed into a CallAnalysis instance by the SDK. Works the same way on Haiku, Sonnet, and Opus.
     """
     client = get_client()
-    tool = {
-        "name": TOOL_NAME,
-        "description": "Record the structured analysis of the support call.",
-        "input_schema": CallAnalysis.model_json_schema(),
-    }
-    messages = [{"role": "user", "content": f"Transcript:\n\n{transcript}"}]
-    usage = Usage()
+    extra = {"output_config": {"effort": effort}} if effort else {}
 
-    for attempt in range(MAX_ATTEMPTS):
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            tools=[tool],
-            tool_choice={"type": "tool", "name": TOOL_NAME},
-            messages=messages,
-        )
-        usage.input_tokens += response.usage.input_tokens
-        usage.output_tokens += response.usage.output_tokens
-        usage.api_calls += 1
-        tool_use = next(b for b in response.content if b.type == "tool_use")
-        try:
-            return CallAnalysis.model_validate(tool_use.input), usage
-        except ValidationError as err:
-            if attempt == MAX_ATTEMPTS - 1:
-                raise
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": tool_use.id,
-                    "is_error": True,
-                    "content": f"The output failed validation:\n{err}\nCall the tool again with corrected values.",
-                }],
-            })
+    start = time.perf_counter()
+    response = client.messages.parse(
+        model=model,
+        max_tokens=MAX_TOKENS,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": f"Transcript:\n\n{transcript}"}],
+        output_format=CallAnalysis,
+        **extra,
+    )
+    latency = time.perf_counter() - start
 
-    raise RuntimeError("unreachable")
+    usage = Usage(
+        model=model,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+        api_calls=1,
+        latency_s=latency,
+    )
+
+    if response.stop_reason == "refusal":
+        raise ExtractionError(f"{model} declined to analyze the transcript: {response.stop_details}")
+    if response.stop_reason == "max_tokens":
+        raise ExtractionError(f"{model} hit max_tokens ({MAX_TOKENS}) before finishing")
+    if response.parsed_output is None:
+        raise ExtractionError(f"{model} returned no parsed output (stop_reason={response.stop_reason})")
+
+    return response.parsed_output, usage

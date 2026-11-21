@@ -18,55 +18,64 @@ Agent: Is there anything else?
 Customer: No, that's all.
 ```
 
-Actual output from `claude-haiku-5-5`, validated against a Pydantic schema (1,604 input and 282 output tokens):
+Actual output from `claude-haiku-5-5` (1,241 input and 323 output tokens, about $0.0003):
 
 ```json
 {
-  "summary": "Customer's card was declined and the agent checked it; the card issuer is blocking the transaction. The customer was advised to try a different card or contact their bank and said they would call the bank.",
+  "summary": "Customer reported a declined card. The agent said the card issuer is blocking the transaction and advised trying a different card or contacting the bank, and the customer plans to call the bank.",
   "issue_category": "billing",
   "customer_sentiment": "negative",
   "resolved": false,
   "follow_up_required": true,
   "action_items": [
-    "Customer to contact their card issuer/bank to resolve the blocked transaction",
-    "Customer to try a different payment card if needed"
+    "Customer to contact their bank about the blocked transaction"
   ],
   "pii_mentioned": true
 }
 ```
 
-## Results
+## Results: which model should you use?
 
-Evaluated on 32 synthetic, hand-labeled transcripts with `claude-haiku-5-5`:
+All three current Claude models were run on the same 32 synthetic, hand-labeled transcripts, twice each, at each model's default effort level.
 
-| Field | Dev (18 cases) | Test (14 held-out cases) |
-|---|---|---|
-| Issue category | 100% | 100% |
-| Customer sentiment | 100% | 93% |
-| Resolved | 94% | 93% |
-| Follow-up required | 100% | 93% |
-| Personal data mentioned | 100% | 100% |
-| **Every field correct** | **17/18 (94%)** | **12/14 (86%)** |
+| Model | Every field correct | Dev (18) | Held-out test (14) | Cost per 1,000 calls | Latency p50 / p95 |
+|---|---|---|---|---|---|
+| Haiku 5.5 | 25/32 (78%) | 14 | 11 | **$0.23** | 1.9s / 3.2s |
+| Sonnet 5.5 | 29/32 (91%) | 15–16 | 13–14 | $3.73 | 2.1s / 2.6s |
+| Opus 5.5 | **30/32 (94%)** | 16 | **14** | $7.99 | 2.4s / 3.4s |
 
-Across repeated runs the overall score is stable at 28–29 of 32 calls fully correct. A full eval run costs about **$0.01** (about 50K input and 8K output tokens; roughly $0.0003 per call).
+Scores were identical across both runs except where a range is shown.
 
-### What the remaining errors show
+| Field (mean of both runs) | Haiku 5.5 | Sonnet 5.5 | Opus 5.5 |
+|---|---|---|---|
+| Issue category | 97% | 97% | 94% |
+| Customer sentiment | 83% | 94% | 100% |
+| Resolved | 98% | 100% | 100% |
+| Follow-up required | 95% | 100% | 100% |
+| Personal data mentioned | 100% | 100% | 100% |
 
-- **Routine company steps.** When the company still has a routine step to do, such as inspecting a returned item or shipping a promised replacement, the model tends to treat it as automatic. The written definitions count it as a person acting, so these calls score as wrong on *resolved* or *follow-up required*.
-- **Mild sentiment.** Phrases like "Sounds good." or "that's disappointing… okay, thanks" sit between two sentiment labels and can flip between runs.
+### What this shows
+
+- **Opus is the most accurate.** It got every held-out test case right in both runs, and it costs about 35 times as much per call as Haiku.
+- **Sonnet nearly matches Opus at under half the cost.** It's the best default when accuracy matters.
+- **Haiku's gap is almost all sentiment.** Its new misses are calm or mildly unhappy endings ("Fine.", "Okay, I'll take pictures tonight") labeled as negative. Sentiment is the only field without a written definition. Writing one and re-checking on dev cases is a cheap experiment to run before paying for a larger model.
+- **Latency doesn't separate them.** All three answer in about 2–3 seconds per call for this task.
+- **Volume decides the cost question.** At 100,000 calls a month, this costs about $23 on Haiku, $373 on Sonnet, or $799 on Opus.
+
+The full results are in [`evals/results/`](evals/results/). The whole comparison cost $0.77.
+
+**Method notes:** latency was measured with 4 requests in parallel, including network time. Costs use Anthropic's list prices in [`extract.py`](src/callsense/extract.py). With only 32 cases, one case moves a score by about 3 points, so differences of one or two cases between models are within noise.
 
 ## How it works
 
 ```text
-transcript ──► Claude (forced tool call with JSON schema) ──► Pydantic validation ──► CallAnalysis
-                                       ▲                              │
-                                       └──── retry with the error ◄───┘ (if invalid)
+transcript ──► Claude (structured output, constrained to the CallAnalysis JSON schema) ──► CallAnalysis
 ```
 
-- **Structured output.** The `CallAnalysis` Pydantic model ([`schema.py`](src/callsense/schema.py)) is converted to a JSON schema and given to Claude as a tool it must call. This makes the response machine-readable instead of free text.
-- **Validation and retry.** The tool input is validated with Pydantic. If it fails, the validation error is sent back to Claude once so it can correct itself ([`extract.py`](src/callsense/extract.py)).
+- **Structured output.** The `CallAnalysis` Pydantic model ([`schema.py`](src/callsense/schema.py)) is passed to Claude's structured-output mode, which constrains the response to that JSON schema. The SDK parses it into a validated `CallAnalysis` object ([`extract.py`](src/callsense/extract.py)), and the same code works on Haiku, Sonnet and Opus.
 - **Definitions as the prompt.** Each field's description spells out exactly what counts. For example, *resolved* means the agent completed every action needed on the call, and masked values like `j.m****@example.com` are not personal data. These descriptions travel inside the schema, so the model and the human labeler work from the same rules.
-- **Cost tracking.** Token usage is summed across retries for every call.
+- **Failure handling.** Refusals, truncated responses and missing output raise a clear error instead of returning partial data.
+- **Cost and latency tracking.** Every call records tokens, cost and response time.
 
 ## Evaluation method
 
@@ -77,7 +86,7 @@ The eval ([`evaluate.py`](src/callsense/evaluate.py), cases in [`evals/cases.jso
 - **Repeated runs.** Model output varies between runs, so results were checked across several runs rather than one.
 - **Hard cases on purpose.** The set includes a refund that was denied, an outage, a customer who calms down by the end of the call, an SSN shared without being asked, and masked versus unmasked personal data.
 
-Iterating on the definitions took the dev score from 5/8 to 17/18. Most early misses were caused by vague definitions or mislabeled cases, not by the model.
+Iterating on the definitions took Haiku's dev score from 5/8 to 17/18 in an earlier version that used forced tool calls instead of structured output. Most early misses were caused by vague definitions or mislabeled cases, not by the model. Switching to structured output (needed because Sonnet 5.5 and Opus 5.5 don't accept forced tool calls) fixed Haiku's *resolved* and *follow-up* misses but exposed the undefined sentiment field.
 
 ## Run it
 
@@ -96,6 +105,13 @@ Run the eval:
 uv run python -m callsense.evaluate               # all 32 cases
 uv run python -m callsense.evaluate --split dev   # dev cases only
 uv run python -m callsense.evaluate --split test  # held-out cases only
+uv run python -m callsense.evaluate --model claude-sonnet-5-5
+```
+
+Compare models (about $0.77 for all three models, two runs each):
+
+```bash
+uv run python -m callsense.compare
 ```
 
 Analyze a single transcript from Python:
@@ -113,10 +129,12 @@ print(usage)
 ```text
 src/callsense/
   schema.py     CallAnalysis model and field definitions
-  extract.py    Claude call, validation, retry, token usage
+  extract.py    Claude call with structured output; tokens, cost, latency
   evaluate.py   Eval runner with per-field, per-split accuracy
+  compare.py    Runs the eval across models and saves a comparison
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)
+  results/      Saved model comparison results
 ```
 
 ## Limitations
@@ -127,7 +145,8 @@ evals/
 
 ## Next steps
 
+- Write a sentiment definition and check whether it closes Haiku's gap to Sonnet.
+- Compare effort levels, and a local open-source model, on the same eval.
 - Redact personal data from transcripts before storage.
-- Grow the eval with dev cases on the "routine company step" boundary and longer, noisier transcripts.
-- Compare models (Haiku, Sonnet, a local open-source model) on accuracy, cost, and latency.
+- Grow the eval with longer, noisier transcripts.
 - A small web UI to paste a transcript and see the analysis.
