@@ -67,3 +67,69 @@ def no_real_client(monkeypatch):
 
     monkeypatch.setattr(extract.anthropic, "Anthropic", forbidden)
     monkeypatch.setattr(extract, "_client", None)
+
+
+def make_message(text: str, stop_reason: str = "end_turn", input_tokens: int = 1000, output_tokens: int = 200):
+    """A plain Messages API reply (what messages.create and batch results return)."""
+    return SimpleNamespace(
+        content=[SimpleNamespace(type="text", text=text)],
+        stop_reason=stop_reason,
+        stop_details=None,
+        usage=SimpleNamespace(input_tokens=input_tokens, output_tokens=output_tokens),
+    )
+
+
+class FakeBatches:
+    def __init__(self, messages):
+        self._messages = messages
+        self.created = []  # the request lists of each batch
+        self.retrieves = 0
+
+    def create(self, requests):
+        self.created.append(list(requests))
+        return SimpleNamespace(id=f"batch_{len(self.created)}", processing_status="in_progress")
+
+    def retrieve(self, batch_id):
+        self.retrieves += 1
+        counts = SimpleNamespace(processing=0, succeeded=0, errored=0)
+        # First poll says it's still running, so the polling loop is exercised.
+        status = "in_progress" if self.retrieves == 1 else "ended"
+        return SimpleNamespace(id=batch_id, processing_status=status, request_counts=counts)
+
+    def results(self, batch_id):
+        index = int(batch_id.split("_")[1]) - 1
+        for request in self._messages.batch_requests(index):
+            reply = self._messages.respond(request["params"])
+            if isinstance(reply, str):  # an error type
+                result = SimpleNamespace(type="errored", error=reply)
+            else:
+                result = SimpleNamespace(type="succeeded", message=reply)
+            yield SimpleNamespace(custom_id=request["custom_id"], result=result)
+
+
+class FakeCreateMessages:
+    """messages.create and messages.batches, answering every request with responder(params)."""
+
+    def __init__(self, responder):
+        self.respond = responder
+        self.calls = []
+        self.batches = FakeBatches(self)
+
+    def create(self, **params):
+        self.calls.append(params)
+        return self.respond(params)
+
+    def batch_requests(self, index):
+        return self.batches.created[index]
+
+
+@pytest.fixture
+def fake_api(monkeypatch):
+    """Install a fake client whose replies come from responder(params). Supports the Batch API."""
+
+    def install(responder):
+        client = SimpleNamespace(messages=FakeCreateMessages(responder))
+        monkeypatch.setattr(extract, "_client", client)
+        return client
+
+    return install

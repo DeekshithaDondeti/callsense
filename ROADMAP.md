@@ -14,14 +14,15 @@ Each phase ends with something you can show, and a resume line you can defend in
 
 You can't evaluate an agent on "why did X spike?" unless you know the true answer. So generate the data with trends planted on purpose.
 
-- [ ] `generate.py`: create about 3,000 synthetic calls spread over 12 weeks. Use Haiku with a fixed seed list of scenarios so the cost stays around $1–2.
-- [ ] Plant 4–6 known events and record them in `evals/planted_events.json`. Examples:
+- [x] `generate.py`: create about 3,000 synthetic calls spread over 12 weeks. Use Haiku with a fixed seed list of scenarios so the cost stays around $1–2. *(Code done: 2,874 calls planned, about $0.40 estimated through the Batch API. Not run yet.)*
+- [x] Plant 4–6 known events and record them in `evals/planted_events.json`. *(Five events plus two non-events.)* Examples:
   - week 7: a payment-gateway outage, so billing complaints triple for 3 days
   - week 9: a new refund policy, so negative sentiment rises on refund calls
   - a slow rise in "app login" issues from week 4 onwards
   - one region or product line with a much lower resolution rate
-- [ ] Add realistic noise: longer calls, small speech-to-text errors, off-topic small talk.
-- [ ] Run every call through `redact` and then `analyze_call` (Haiku: about $0.22 per 1,000 calls).
+- [x] Add realistic noise: longer calls, small speech-to-text errors, off-topic small talk.
+- [ ] Run every call through `redact` and then `analyze_call` (Haiku: about $0.22 per 1,000 calls). *(Code done in `synth/process.py`, about $0.80 estimated. Not run yet.)*
+- [ ] Run `synth/check.py` and put the results in the README: redaction recall at scale, label agreement, and whether each planted trend is visible in the analysed data.
 
 **Done when:** you have about 3,000 analysed calls and a file stating the true trends.
 

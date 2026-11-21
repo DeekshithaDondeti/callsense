@@ -1,0 +1,224 @@
+{
+  "about": "Ground truth for the synthetic dataset. Every number below is from the plan, i.e. what each call was written to be. The analysed data (dataset-check.json) is compared against these.",
+  "dataset": {
+    "seed": 20260601,
+    "start": "2026-06-01",
+    "end": "2026-08-23",
+    "weeks": 12,
+    "week_1_starts": "2026-06-01",
+    "calls": 2874,
+    "calls_per_week": [
+      202,
+      208,
+      202,
+      204,
+      216,
+      221,
+      290,
+      231,
+      247,
+      283,
+      295,
+      275
+    ],
+    "regions": [
+      "Northeast",
+      "Southeast",
+      "Midwest",
+      "West"
+    ],
+    "products": [
+      "Kestrel Cam",
+      "Kestrel Doorbell",
+      "Kestrel Hub",
+      "Kestrel Plus",
+      "Kestrel app"
+    ]
+  },
+  "events": [
+    {
+      "id": "payment_outage",
+      "kind": "spike",
+      "start": "2026-07-14",
+      "end": "2026-07-16",
+      "weeks": [
+        7
+      ],
+      "what_happened": "The payment processor had an outage for three days. Checkouts and renewals failed, and some customers were charged without getting an order.",
+      "what_shows_in_the_data": "Billing calls roughly triple on July 14-16. The extra calls are about failed payments, mostly unresolved (agents say it's a known outage) and mostly negative.",
+      "scenario": "billing_payment_failed_outage",
+      "planned_numbers": {
+        "billing_calls_per_outage_day": [
+          28,
+          27,
+          24
+        ],
+        "billing_calls_per_other_weekday_weeks_6_to_8": 8.4
+      }
+    },
+    {
+      "id": "refund_policy_change",
+      "kind": "shift",
+      "start": "2026-07-27",
+      "end": "2026-08-23",
+      "weeks": [
+        9,
+        10,
+        11,
+        12
+      ],
+      "what_happened": "On July 27 the refund window was cut from 30 days to 14 days.",
+      "what_shows_in_the_data": "From week 9, most refund-request calls end with the refund denied under the new 14-day window, so negative sentiment and unresolved calls rise sharply on refund calls. Call volume doesn't change.",
+      "scenario": "billing_refund_request",
+      "planned_numbers": {
+        "refund_calls_before_and_after": [
+          197,
+          73
+        ],
+        "negative_share_before": 0.254,
+        "negative_share_after": 0.699,
+        "resolved_share_before": 0.655,
+        "resolved_share_after": 0.192
+      }
+    },
+    {
+      "id": "app_login_rise",
+      "kind": "trend",
+      "start": "2026-06-22",
+      "end": "2026-08-23",
+      "weeks": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "what_happened": "App version 5.2, released on June 22, has a login bug: after entering a password the app returns to the login screen. It isn't fixed by the end of the data.",
+      "what_shows_in_the_data": "Account calls about not being able to log in to the app, which don't exist before week 4, grow steadily every week from week 4 to week 12. Customers mention updating to 5.2.",
+      "scenario": "account_app_login_loop",
+      "planned_numbers": {
+        "login_calls_per_week": [
+          0,
+          0,
+          0,
+          3,
+          11,
+          20,
+          28,
+          35,
+          41,
+          53,
+          59,
+          70
+        ]
+      }
+    },
+    {
+      "id": "midwest_low_resolution",
+      "kind": "segment",
+      "start": "2026-06-01",
+      "end": "2026-08-23",
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "what_happened": "Midwest agents lack system access to complete refunds, replacements and account changes themselves, so they escalate to a back-office team.",
+      "what_shows_in_the_data": "The Midwest region's resolution rate is far below the other regions in every week. Its unresolved calls end with the agent saying they lack access and a back-office team will call back in 3 to 5 business days.",
+      "region": "Midwest",
+      "planned_numbers": {
+        "resolved_share_by_region": {
+          "Northeast": 0.67,
+          "Southeast": 0.66,
+          "Midwest": 0.324,
+          "West": 0.66
+        }
+      }
+    },
+    {
+      "id": "doorbell_shipping_delay",
+      "kind": "spike",
+      "start": "2026-08-03",
+      "end": "2026-08-16",
+      "weeks": [
+        10,
+        11
+      ],
+      "what_happened": "A carrier backlog at the central warehouse delayed Kestrel Doorbell orders for two weeks.",
+      "what_shows_in_the_data": "Shipping calls about the Kestrel Doorbell jump in weeks 10 and 11, mostly about late orders and a carrier backlog, then return to normal in week 12.",
+      "scenario": "ship_doorbell_backorder",
+      "product": "Kestrel Doorbell",
+      "planned_numbers": {
+        "doorbell_shipping_calls_per_week": [
+          11,
+          14,
+          15,
+          9,
+          10,
+          9,
+          7,
+          7,
+          6,
+          48,
+          44,
+          8
+        ]
+      }
+    }
+  ],
+  "non_events": [
+    {
+      "id": "cancellations_flat",
+      "claim": "Cancellation calls stay roughly flat across all 12 weeks. Nothing was planted, so an answer claiming a cancellation spike or trend is wrong.",
+      "planned_numbers": {
+        "cancellation_calls_per_week": [
+          19,
+          20,
+          21,
+          21,
+          19,
+          19,
+          18,
+          25,
+          21,
+          21,
+          21,
+          18
+        ]
+      }
+    },
+    {
+      "id": "technical_flat",
+      "claim": "Technical calls (cameras, hub, app crashes) stay roughly flat. The login bug is an account issue, not a technical one, under the CallAnalysis definitions.",
+      "planned_numbers": {
+        "technical_calls_per_week": [
+          49,
+          50,
+          44,
+          55,
+          41,
+          52,
+          49,
+          44,
+          43,
+          42,
+          37,
+          61
+        ]
+      }
+    }
+  ]
+}

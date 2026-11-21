@@ -15,7 +15,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from callsense.extract import DEFAULT_MODEL, MAX_TOKENS, ExtractionError, Usage, get_client
+from callsense.extract import DEFAULT_MODEL, MAX_TOKENS, ExtractionError, Usage, get_client, json_format, parse_json_message
 from callsense.redact import Redaction, RedactionResult, apply_redactions, redact
 
 
@@ -85,19 +85,52 @@ def _locate(finding_text: str, redacted: str, segments, taken: list[Redaction]) 
     return None
 
 
+def _redaction_kwargs(masked_text: str, model: str) -> dict:
+    return {
+        "model": model,
+        "max_tokens": MAX_TOKENS,
+        "system": SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": f"Transcript:\n\n{masked_text}"}],
+    }
+
+
+def redaction_request(regex_result: RedactionResult, model: str = DEFAULT_MODEL) -> dict:
+    """Messages API params for the Claude pass over an already regex-masked transcript.
+
+    The same request redact_with_claude sends. Use with the Message Batches API; read the reply
+    with parse_findings, then combine with apply_findings.
+    """
+    return {**_redaction_kwargs(regex_result.text, model), "output_config": {"format": json_format(PiiFindings)}}
+
+
+def parse_findings(message, model: str = DEFAULT_MODEL) -> PiiFindings:
+    """Validate the reply to a redaction_request."""
+    return parse_json_message(message, PiiFindings, model)
+
+
+def apply_findings(text: str, regex_result: RedactionResult, findings: PiiFindings) -> tuple[RedactionResult, list[str]]:
+    """Add Claude's findings to the regex redactions. Returns the result and findings that couldn't be located."""
+    segments = _map_to_original(regex_result, text)
+    redactions = list(regex_result.redactions)
+    unlocated = []
+    for finding in findings.findings:
+        span = _locate(finding.text, regex_result.text, segments, redactions)
+        if span is None:
+            unlocated.append(finding.text)
+            continue
+        redactions.append(Redaction(finding.kind.value, span[0], span[1], text[span[0]:span[1]]))
+
+    redactions.sort(key=lambda r: r.start)
+    return RedactionResult(text=apply_redactions(text, redactions), redactions=redactions), unlocated
+
+
 def redact_with_claude(text: str, model: str = DEFAULT_MODEL) -> tuple[RedactionResult, Usage, list[str]]:
     """Redact with regex, then Claude. Returns the result, API usage, and any findings that couldn't be located."""
     regex_result = redact(text)
     client = get_client()
 
     start = time.perf_counter()
-    response = client.messages.parse(
-        model=model,
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"Transcript:\n\n{regex_result.text}"}],
-        output_format=PiiFindings,
-    )
+    response = client.messages.parse(**_redaction_kwargs(regex_result.text, model), output_format=PiiFindings)
     usage = Usage(
         model=model,
         input_tokens=response.usage.input_tokens,
@@ -112,15 +145,5 @@ def redact_with_claude(text: str, model: str = DEFAULT_MODEL) -> tuple[Redaction
     if response.parsed_output is None:
         raise ExtractionError(f"{model} returned no parsed output (stop_reason={response.stop_reason})")
 
-    segments = _map_to_original(regex_result, text)
-    redactions = list(regex_result.redactions)
-    unlocated = []
-    for finding in response.parsed_output.findings:
-        span = _locate(finding.text, regex_result.text, segments, redactions)
-        if span is None:
-            unlocated.append(finding.text)
-            continue
-        redactions.append(Redaction(finding.kind.value, span[0], span[1], text[span[0]:span[1]]))
-
-    redactions.sort(key=lambda r: r.start)
-    return RedactionResult(text=apply_redactions(text, redactions), redactions=redactions), usage, unlocated
+    result, unlocated = apply_findings(text, regex_result, response.parsed_output)
+    return result, usage, unlocated

@@ -3,3 +3,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Synthetic dataset: plan.jsonl is rebuilt for free by callsense.synth.plan
+data/

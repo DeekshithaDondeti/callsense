@@ -112,6 +112,45 @@ The two-pass results were identical across two runs. On the 32 call transcripts,
 
 A CI test fails if a change makes the regex redactor leak any written-format item it catches today or remove a safe string.
 
+## Synthetic dataset with planted trends (phase 2, in progress)
+
+To test questions across many calls ("why did billing complaints spike in week 7?"), the true answer has to be known. So the dataset is built in two steps:
+
+1. **Plan in code (free, deterministic).** [`synth/plan.py`](src/callsense/synth/plan.py) decides every call's date, region, product, scenario (from a fixed list of 28 in [`synth/scenarios.py`](src/callsense/synth/scenarios.py)), how it ends, how the customer feels at the end, and any synthetic personal data they say. That gives 2,874 calls over 12 weeks (June 1 to August 23, 2026) for Kestrel Home, a fictional smart-home company.
+2. **Claude writes the dialogue only.** [`synth/generate.py`](src/callsense/synth/generate.py) asks Haiku to write each call to its spec, then adds speech-to-text noise in code (swapped homophones, dropped punctuation, repeated words, "um"). Because the code chose the outcome and mood, the trends don't depend on the model.
+
+Five trends are planted on purpose and written to [`evals/planted_events.json`](evals/planted_events.json), with the numbers the plan produced:
+
+| Event | When | What a correct analysis should show |
+|---|---|---|
+| Payment processor outage | July 14–16 (week 7) | Billing calls about 3x normal (24–28 a day vs about 8) |
+| Refund window cut from 30 to 14 days | from July 27 (week 9) | Negative refund calls go from 25% to 70%, resolved from 66% to 19% |
+| App 5.2 login bug | from June 22 (week 4) | Login calls go from 0 a week to 70 a week by week 12 |
+| Midwest agents lack system access | all 12 weeks | Midwest resolves 32% of calls vs 66–67% elsewhere |
+| Doorbell carrier backlog | weeks 10–11 | Doorbell shipping calls go from about 10 a week to over 40 |
+
+Two non-events are recorded too (cancellations and technical calls stay flat), so an answer that invents a trend can be marked wrong.
+
+After generation, [`synth/process.py`](src/callsense/synth/process.py) redacts each call (regex, then Claude) and analyses the *redacted* transcript, so raw personal data never reaches the analysis step. Both steps send exactly the same requests as `redact_with_claude` and `analyze_call`, through the [Message Batches API](src/callsense/batch.py) at half price. Every stage skips calls it has already done, and an interrupted batch is resumed rather than paid for twice.
+
+[`synth/check.py`](src/callsense/synth/check.py) then measures, from local files:
+
+- **Redaction at scale.** About 740 calls carry planted synthetic personal data (fake 555-01xx phone numbers, card networks' test card numbers, example.com emails, some read out as words). Each planted value counts as removed only if redaction covers every character of it.
+- **Label agreement** between what each call was written to be and what the analysis says.
+- **Whether each planted trend is visible in the analysed data**, which is what the analyst agent will query in phase 4.
+
+**Status:** the code and tests are done, but the paid run hasn't been done yet, so there are no results to report.
+
+```bash
+uv run python -m callsense.synth.plan                # free: data/plan.jsonl and evals/planted_events.json
+uv run python -m callsense.synth.generate --dry-run  # free: cost estimate and an example prompt
+uv run python -m callsense.synth.generate            # about $0.40 estimated (Haiku, Batch API)
+uv run python -m callsense.synth.process             # about $0.80 estimated: redact, then analyse
+uv run python -m callsense.synth.check               # free: writes evals/results/dataset-check.json
+```
+
+Each paid command prints its estimate and asks before sending anything. `--limit N` runs a sample spread over all 12 weeks, and `--sync` skips the batch wait at full price.
+
 ## How it works
 
 ```text
@@ -200,9 +239,12 @@ src/callsense/
   redact.py     Regex redaction of personal data
   redact_llm.py Claude second pass for dates of birth and spoken forms
   evaluate_redaction.py  Redaction recall and false-positive check
+  batch.py      Message Batches API runner that resumes interrupted batches
+  synth/        Synthetic dataset: scenarios, call plan, generation, redact + analyse, checks
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)
   redaction_cases.json   22 labeled redaction cases (written and spoken)
+  planted_events.json    The true trends planted in the synthetic dataset
   results/      Saved model comparison results
 tests/          Unit tests with a fake Claude client, run by GitHub Actions on every push
 ```

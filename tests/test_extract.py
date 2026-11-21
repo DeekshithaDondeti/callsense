@@ -59,3 +59,37 @@ def test_cost_uses_model_prices():
 
 def test_unknown_model_costs_zero():
     assert Usage(model="some-other-model", input_tokens=500, output_tokens=500).cost_usd == 0
+
+
+def test_analysis_request_matches_analyze_call_and_adds_the_schema(fake_client):
+    from callsense.extract import analysis_request, json_format
+    from callsense.schema import CallAnalysis
+
+    client = fake_client(make_response(parsed=make_analysis()))
+    analyze_call("Customer: hi", effort="low")
+    sync = client.messages.calls[0]
+
+    batch = analysis_request("Customer: hi", effort="low")
+
+    assert {k: v for k, v in batch.items() if k != "output_config"} == {
+        k: v for k, v in sync.items() if k not in ("output_config", "output_format")
+    }
+    assert batch["output_config"] == {"effort": "low", "format": json_format(CallAnalysis)}
+
+
+def test_parse_analysis_validates_json():
+    from callsense.extract import parse_analysis
+
+    from .conftest import make_message
+
+    assert parse_analysis(make_message(make_analysis().model_dump_json())) == make_analysis()
+    with pytest.raises(ExtractionError, match="doesn't match"):
+        parse_analysis(make_message('{"summary": "x"}'))
+    with pytest.raises(ExtractionError, match="declined"):
+        parse_analysis(make_message("", stop_reason="refusal"))
+
+
+def test_batch_usage_costs_half():
+    full = Usage(model="claude-haiku-5-5", input_tokens=1000, output_tokens=1000)
+    half = Usage(model="claude-haiku-5-5", input_tokens=1000, output_tokens=1000, batch=True)
+    assert half.cost_usd == pytest.approx(full.cost_usd / 2)
