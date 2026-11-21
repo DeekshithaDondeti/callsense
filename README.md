@@ -91,18 +91,26 @@ Customer: It's [CARD_NUMBER], expiry [CARD_EXPIRY], CVV [CVV].
 
 It covers card numbers (with a checksum, so order numbers aren't masked), CVVs and expiry dates when labeled, SSNs, phone numbers, full email addresses and street addresses. Masked values like `j.m****@example.com` and last-four digits are left alone.
 
+Regex alone can't handle context: a date is only personal data when it's someone's birth date, and speech-to-text often writes numbers as words. So [`redact_llm.py`](src/callsense/redact_llm.py) adds a second pass:
+
+1. **Regex first (free).** Written-format data is masked locally and never sent to the API.
+2. **Claude second.** The masked transcript goes to Claude, which *lists* any remaining personal data. It never rewrites the transcript: each finding must match the text exactly, the code does the replacement, and anything Claude returns that isn't in the text is ignored.
+
 Measured on 22 labeled cases ([`evals/redaction_cases.json`](evals/redaction_cases.json)). A miss here is a privacy leak, so **recall** is the headline number:
 
-| | Items fully redacted |
-|---|---|
-| Written formats: cards, CVVs, expiries, SSNs, phones, emails, addresses | **15/15 (100%)** |
-| Dates of birth | 0/2 |
-| Spoken forms ("four one one one…", "priya dot n at example dot com") | 0/5 |
-| Safe strings kept (prices, dates, versions, order and tracking numbers) | **16/16 (100%)** |
+| | Regex only | Regex + Claude (Haiku 5.5) |
+|---|---|---|
+| Written formats: cards, CVVs, expiries, SSNs, phones, emails, addresses | **15/15** | **15/15** |
+| Dates of birth | 0/2 | **2/2** |
+| Spoken forms ("four one one one…", "priya dot n at example dot com") | 0/5 | **5/5** |
+| Safe strings kept (prices, dates, versions, order and tracking numbers) | 16/16 | 16/16 |
+| Cost for all 22 cases | $0 | about $0.0024 |
 
-On the 32 call transcripts, it flags 7 of the 8 that contain personal data (the miss is a date of birth) and none of the other 24.
+The two-pass results were identical across two runs. On the 32 call transcripts, regex alone flags 7 of the 8 that contain personal data (it misses a date of birth). Regex plus Claude matches all 32 labels: it flags all 8 and none of the other 24.
 
-**The gap is context.** A date is only personal data when it's someone's birth date, and speech-to-text often writes numbers as words. Regex can't handle either, which is where a model-based second pass would come in. A CI test fails if a change makes the redactor leak any written-format item it catches today or remove a safe string.
+**Caveats.** The redaction cases are few and were written by the same person who wrote the prompt, so the prompt's "do not list" rules (prices, ordinary dates, order numbers) mirror what the cases test. There's no held-out redaction set yet. Also, spoken-form data regex can't catch does reach the API before it's redacted; a fully local setup would need a local model for the second pass.
+
+A CI test fails if a change makes the regex redactor leak any written-format item it catches today or remove a safe string.
 
 ## How it works
 
@@ -153,6 +161,12 @@ echo "Call me at (415) 555-0123" | uv run python -m callsense.redact
 uv run python -m callsense.evaluate_redaction
 ```
 
+Add the Claude second pass to the redaction eval (about $0.0024 on Haiku):
+
+```bash
+uv run python -m callsense.evaluate_redaction --with-claude
+```
+
 Run the unit tests (free: they use a fake Claude client and need no API key):
 
 ```bash
@@ -184,6 +198,7 @@ src/callsense/
   evaluate.py   Eval runner with per-field, per-split accuracy
   compare.py    Runs the eval across models and saves a comparison
   redact.py     Regex redaction of personal data
+  redact_llm.py Claude second pass for dates of birth and spoken forms
   evaluate_redaction.py  Redaction recall and false-positive check
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)
@@ -196,12 +211,12 @@ tests/          Unit tests with a fake Claude client, run by GitHub Actions on e
 
 - All transcripts are synthetic and short; real calls are longer, messier, and come from speech-to-text with errors.
 - 32 cases is a small eval: one case moves a split's score by 5–7 points.
-- Redaction misses dates of birth and anything spoken as words, and it only covers US formats.
+- Regex redaction only covers US formats; dates of birth and spoken forms need the Claude pass. Names are not redacted.
 
 ## Next steps
 
 - Have a second person label the sentiment cases to measure how often humans disagree on them.
 - Compare effort levels, and a local open-source model, on the same eval.
-- Add a model-based second redaction pass for dates of birth and spoken forms, measured on the same cases.
+- Grow the redaction cases with a held-out set, names, and non-US formats.
 - Grow the eval with longer, noisier transcripts.
 - A small web UI to paste a transcript and see the analysis.

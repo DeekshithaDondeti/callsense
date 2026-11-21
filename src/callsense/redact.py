@@ -88,13 +88,18 @@ def redact(text: str) -> RedactionResult:
             found.append(Redaction(kind, start, end, text[start:end]))
 
     found.sort(key=lambda r: r.start)
+    return RedactionResult(text=apply_redactions(text, found), redactions=found)
+
+
+def apply_redactions(text: str, redactions: list[Redaction]) -> str:
+    """Replace each (non-overlapping, sorted) redaction span in text with its [KIND] placeholder."""
     pieces, cursor = [], 0
-    for r in found:
+    for r in sorted(redactions, key=lambda r: r.start):
         pieces.append(text[cursor:r.start])
         pieces.append(f"[{r.kind}]")
         cursor = r.end
     pieces.append(text[cursor:])
-    return RedactionResult(text="".join(pieces), redactions=found)
+    return "".join(pieces)
 
 
 def main() -> None:
