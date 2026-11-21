@@ -1,7 +1,7 @@
 [project]
 name = "callsense"
 version = "0.1.0"
-description = "Add your description here"
+description = "Structured analysis of customer support call transcripts with Claude, plus an eval harness."
 readme = "README.md"
 authors = [
     { name = "DeekshithaDondeti", email = "deekshithadondeti19@gmail.com" }
