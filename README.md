@@ -1,5 +1,7 @@
 # CallSense
 
+[![Tests](https://github.com/DeekshithaDondeti/callsense/actions/workflows/tests.yml/badge.svg)](https://github.com/DeekshithaDondeti/callsense/actions/workflows/tests.yml)
+
 Turn customer support call transcripts into structured, validated data with Claude, and measure how accurate that data is.
 
 Support teams review only a small share of their calls by hand. CallSense reads a transcript and returns the fields a QA lead or support manager would want for every call: what the call was about, how the customer felt at the end, whether the issue was resolved, whether someone still needs to act, and whether the customer shared personal data that should be redacted.
@@ -120,6 +122,12 @@ uv run python -m callsense.evaluate --split test  # held-out cases only
 uv run python -m callsense.evaluate --model claude-sonnet-5-5
 ```
 
+Run the unit tests (free: they use a fake Claude client and need no API key):
+
+```bash
+uv run pytest
+```
+
 Compare models (about $0.77 for all three models, two runs each):
 
 ```bash
@@ -147,6 +155,7 @@ src/callsense/
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)
   results/      Saved model comparison results
+tests/          Unit tests with a fake Claude client, run by GitHub Actions on every push
 ```
 
 ## Limitations
