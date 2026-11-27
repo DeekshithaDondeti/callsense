@@ -203,6 +203,39 @@ uv run python -m callsense.synth.check               # free: writes evals/result
 
 Each paid command prints its estimate and asks before sending anything. `--limit N` runs a sample spread over all 12 weeks, and `--sync` skips the batch wait at full price.
 
+## Database and pipeline (phase 3)
+
+One command builds a Postgres database (with [pgvector](https://github.com/pgvector/pgvector)) from the processed dataset, then checks it. It makes no API calls.
+
+```bash
+uv run python -m callsense.db.build          # start Postgres, load, embed, run the checks
+uv run python -m callsense.db.build --reset  # drop the tables and rebuild
+uv run python -m callsense.db.quality        # checks only
+```
+
+```text
+data/*.jsonl ──► load (redacted text only) ──► embed locally ──► upsert ──► data-quality checks
+```
+
+- **Tables** ([`schema.sql`](src/callsense/db/schema.sql)): `calls` (redacted transcript, time, region, product, embedding, full-text index) and `call_analysis` (the CallAnalysis fields, model, tokens, cost). Latency is empty for Batch API results. The plan holding the true answers is not loaded, so an analyst agent can't read it.
+- **Embeddings:** `bge-small-en-v1.5`, run locally through [fastembed](https://github.com/qdrant/fastembed). The model reads at most 512 tokens and 510 of the 2,874 calls (18%) are longer, so each embedded text starts with the call's summary.
+- **Safe to re-run:** rows are upserted by call ID, a call is embedded again only if its text or the model changes, and loading commits in chunks, so an interrupted run resumes. Redaction and analysis stay in `synth.process`, which skips calls it has already paid for.
+
+On the full dataset (Apple Silicon laptop), the first build embedded and loaded 2,874 calls in about 6 minutes; that time includes the one-off model download of about 2 minutes. A re-run took 1 second and changed nothing.
+
+| Data-quality check | Result |
+|---|---|
+| No personal-data patterns in any stored text | Pass |
+| No planted personal data in any stored text (including spoken forms) | Pass |
+| Every call has an analysis that passes the schema | Pass, 2,874 rows |
+| Row counts match across generate, redact, analyse and both tables | Pass |
+| Stored rows match the source files | Pass |
+| Every call has an embedding | Pass |
+| Daily volume matches the source, with no missing days | Pass, 84 days |
+| Daily volume in the usual range | **Warning** on July 14–16: the planted payment outage |
+
+The volume check only warns, because a real spike isn't a pipeline fault. The personal-data checks cover only what a regex or the planted values can find, so invented spoken data would not be detected.
+
 ## How it works
 
 ```text
@@ -227,7 +260,7 @@ Iterating on the definitions took Haiku's dev score from 5/8 to 17/18 in an earl
 
 ## Run it
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an Anthropic API key. Generating the synthetic dataset also needs a [Meta Model API](https://dev.meta.ai/docs/) key as `META_API_KEY`.
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an Anthropic API key. The database needs Docker. Generating the synthetic dataset also needs a [Meta Model API](https://dev.meta.ai/docs/) key as `META_API_KEY`.
 
 ```bash
 git clone https://github.com/DeekshithaDondeti/callsense.git
@@ -258,7 +291,7 @@ Add the Claude second pass to the redaction eval (about $0.0024 on Haiku):
 uv run python -m callsense.evaluate_redaction --with-claude
 ```
 
-Run the unit tests (free: they use a fake Claude client and need no API key):
+Run the tests (free: they use fake model clients and need no API key; the database tests are skipped unless Postgres is running):
 
 ```bash
 uv run pytest
@@ -293,6 +326,7 @@ src/callsense/
   evaluate_redaction.py  Redaction recall and false-positive check
   batch.py      Message Batches API runner that resumes interrupted batches
   meta.py       Meta Model API client, used to write synthetic transcripts
+  db/           Postgres schema, loader, local embeddings, data-quality checks
   synth/        Synthetic dataset: scenarios, call plan, generation, redact + analyse, checks
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)

@@ -34,13 +34,13 @@ Carried forward from the results:
 
 ## Phase 3: storage and pipeline (about 1 week). This is where your data-engineering experience shows.
 
-- [ ] Run Postgres with pgvector through `docker compose`. Tables: `calls` (raw transcript after redaction, timestamp, product, region) and `call_analysis` (the CallAnalysis fields, model, cost, latency).
-- [ ] Embeddings for semantic search. Anthropic has no embeddings API, so use a free local model (e.g. `sentence-transformers` `bge-small-en-v1.5`), or Voyage AI if you want a hosted one.
-- [ ] An idempotent batch pipeline: load raw calls → redact → analyse → embed → upsert. Re-running it must not duplicate rows or pay twice for already-analysed calls.
-- [ ] Data-quality checks, the same idea as your Dhan.ai framework: no PII patterns in stored text, every analysis row passes the schema, row counts reconcile between stages, and a daily volume check.
+- [x] Run Postgres with pgvector through `docker compose`. Tables: `calls` (raw transcript after redaction, timestamp, product, region) and `call_analysis` (the CallAnalysis fields, model, cost, latency).
+- [x] Embeddings for semantic search. Anthropic has no embeddings API, so use a free local model (e.g. `sentence-transformers` `bge-small-en-v1.5`), or Voyage AI if you want a hosted one. *(Done with `fastembed`, which runs the same model without PyTorch.)*
+- [x] An idempotent batch pipeline: load raw calls → redact → analyse → embed → upsert. Re-running it must not duplicate rows or pay twice for already-analysed calls.
+- [x] Data-quality checks, the same idea as your Dhan.ai framework: no PII patterns in stored text, every analysis row passes the schema, row counts reconcile between stages, and a daily volume check.
 - [ ] Optional streaming mode: replay calls through Kafka and raise a spike alert with a windowed count, a smaller version of your Flink work.
 
-**Done when:** one command builds the whole database from scratch, and the data-quality checks pass.
+**Done when:** one command builds the whole database from scratch, and the data-quality checks pass. **Done** (`uv run python -m callsense.db.build`). The optional streaming mode was not built.
 
 ## Phase 4: the analyst agent and its eval (about 1–1.5 weeks). This is the main event.
 

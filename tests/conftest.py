@@ -172,3 +172,14 @@ def fake_meta(monkeypatch):
         return client
 
     return install
+
+
+@pytest.fixture(autouse=True)
+def no_real_embedding_model(monkeypatch):
+    """Fail loudly if any test tries to load the real embedding model (it would download it)."""
+    import callsense.db.embed as embed
+
+    def forbidden():
+        raise AssertionError("Tests must not load the real embedding model")
+
+    monkeypatch.setattr(embed, "get_model", forbidden)

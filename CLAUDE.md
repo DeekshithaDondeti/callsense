@@ -11,6 +11,8 @@ uv run python -m callsense.evaluate_redaction        # free; add --with-claude f
 uv run python -m callsense.synth.plan                # free: rebuilds data/plan.jsonl and evals/planted_events.json
 uv run python -m callsense.synth.generate --dry-run  # free: cost estimate, sends nothing
 uv run python -m callsense.synth.check               # free: reads local files only
+docker compose up -d --wait                          # Postgres on 127.0.0.1:5433; database tests skip without it
+uv run python -m callsense.db.build                  # free: load, embed locally, run data-quality checks
 ```
 
 `synth.generate` writes dialogue with Meta's Model API by default (`--provider anthropic` for Claude). `synth.process` redacts and analyses with Claude. Both are paid. They accept `--limit N` (a sample spread over all 12 weeks) and `--sync` (no batch wait, full price), and ask before sending unless given `--yes`.
@@ -28,6 +30,7 @@ Two keys in `.env`: `ANTHROPIC_API_KEY` (small balance, about $5) and `META_API_
 
 - Tests must never call a real API. `tests/conftest.py` fails any test that builds a real Anthropic or Meta client; use the `fake_client`, `fake_api` or `fake_meta` fixtures. Check this whenever a default provider changes.
 - Keep `uv run pytest` green and CI passing.
+- Database tests use their own `callsense_test` database and a fake embedder. Don't load the plan (the true answers) into the database.
 - Tune prompts and definitions on **dev** cases only, and report on held-out **test** cases.
 - Change an eval label only when it contradicts the written definition, and record why in `label_notes`.
 - Put real numbers in the README, including the bad ones.

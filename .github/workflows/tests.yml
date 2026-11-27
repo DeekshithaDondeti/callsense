@@ -8,6 +8,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      # Same Postgres + pgvector as docker-compose.yml, for the database tests.
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: callsense
+          POSTGRES_USER: callsense
+          POSTGRES_PASSWORD: callsense-local
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U callsense -d callsense"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v7
 
