@@ -25,13 +25,23 @@ from callsense.extract import (
     analysis_request,
     parse_analysis,
 )
-from callsense.redact import redact
-from callsense.redact_llm import apply_findings, parse_findings, redaction_request
+from callsense.redact import Redaction, apply_redactions, redact
+from callsense.redact_llm import apply_findings, mask_repeats, parse_findings, redaction_request
 from callsense.synth.generate import confirm
-from callsense.synth.store import ANALYZED_PATH, BATCH_STATE_PATH, CALLS_PATH, REDACTED_PATH, append_jsonl, done_ids, read_jsonl
+from callsense.synth.store import (
+    ANALYZED_PATH,
+    BATCH_STATE_PATH,
+    CALLS_PATH,
+    REDACTED_PATH,
+    append_jsonl,
+    done_ids,
+    read_jsonl,
+    write_jsonl,
+)
 
-# Rough per-call token counts for the estimate (input includes the schema and system prompt).
-EST_TOKENS = {"redact": (900, 250), "analyze": (1700, 350)}
+# Per-call (input, output) tokens for the estimate, measured on the 20-call sample. Input includes the
+# system prompt and schema.
+EST_TOKENS = {"redact": (1650, 90), "analyze": (1840, 450)}
 
 
 def _usage_fields(message, model: str, use_batch: bool) -> dict:
@@ -106,6 +116,34 @@ def analyze_stage(redacted: list[dict], model: str, use_batch: bool) -> tuple[in
     return written, failed, cost
 
 
+def repair_redactions() -> tuple[int, int]:
+    """Re-apply stored redactions with mask_repeats, so read-back values are masked too. Free: no API calls.
+
+    Rebuilds each call's redactions from the stored offsets and the raw transcript, so Claude's findings
+    don't need to be requested again. Returns (calls changed, redactions added).
+    """
+    calls = {c["call_id"]: c for c in read_jsonl(CALLS_PATH)}
+    rows = read_jsonl(REDACTED_PATH)
+    changed = added = 0
+    for row in rows:
+        raw = calls[row["call_id"]]["transcript"]
+        old = [Redaction(r["kind"], r["start"], r["end"], raw[r["start"]:r["end"]]) for r in row["redactions"]]
+        if apply_redactions(raw, old) != row["transcript"]:
+            raise RuntimeError(f"{row['call_id']}: stored offsets don't reproduce the stored text; not repairing")
+        new = mask_repeats(raw, old)
+        if len(new) != len(old):
+            changed += 1
+            added += len(new) - len(old)
+            row["transcript"] = apply_redactions(raw, new)
+            row["redactions"] = [{"kind": r.kind, "start": r.start, "end": r.end} for r in new]
+    if changed:
+        backup = REDACTED_PATH.with_name("redacted.before-repeat-fix.jsonl")
+        if not backup.exists():
+            backup.write_text(REDACTED_PATH.read_text())
+        write_jsonl(REDACTED_PATH, rows)
+    return changed, added
+
+
 def _report(stage: str, written: int, failed: list[str], cost: float, path) -> None:
     print(f"[{stage}] wrote {written} rows to data/{path.name}. Actual cost: ${cost:.4f}")
     if failed:
@@ -121,8 +159,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sync", action="store_true", help="send requests one at a time (full price)")
     parser.add_argument("--dry-run", action="store_true", help="print the estimate; send nothing")
     parser.add_argument("--yes", action="store_true", help="don't ask before spending")
+    parser.add_argument("--repair-redactions", action="store_true",
+                        help="free: mask read-back repeats in data/redacted.jsonl, then exit")
     args = parser.parse_args(argv)
     use_batch = not args.sync
+
+    if args.repair_redactions:
+        changed, added = repair_redactions()
+        print(f"Masked {added} repeated values in {changed} calls (backup: data/redacted.before-repeat-fix.jsonl).")
+        return 0
 
     redacted_ids = done_ids(REDACTED_PATH)
     to_redact = [c for c in read_jsonl(CALLS_PATH) if c["call_id"] not in redacted_ids][: args.limit]

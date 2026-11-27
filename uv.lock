@@ -49,6 +49,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
 ]
@@ -61,6 +62,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=2.12.0" },
+    { name = "openai", specifier = ">=3.60.0" },
     { name = "pydantic", specifier = ">=2.14.4" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
 ]
@@ -248,6 +250,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/43/f7adc61beb4d2f9990ad802856324cfa5968f6b54c9dff91e16acc866b0b/jiter-0.19.0-graalpy313-graalpy253_313_native-macosx_11_0_arm64.whl", hash = "sha256:50f9e5bde6bef0eef6a12315088e635b19d50cbceec745615eb8614f6bf4b52c", size = 277105, upload-time = "2026-11-06T15:03:29.514Z" },
     { url = "https://files.pythonhosted.org/packages/5d/56/9d34c6a580f010259c136a1354d0e51cbe1293aef4def5f6c42347c73727/jiter-0.19.0-graalpy313-graalpy253_313_native-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:42efe1a711c0745b6098b8bff931b0a2e7fff36098cbc2dc16b76497f1cbe834", size = 300134, upload-time = "2026-11-06T15:03:30.774Z" },
     { url = "https://files.pythonhosted.org/packages/e7/b7/dd4360ad780ea1455ff2607b43cd9fcd0fd785ae366c8a632785010e92ff/jiter-0.19.0-graalpy313-graalpy253_313_native-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2c82005ee84b348cee72a8df6672b5d6c9fe9db4b81c98b84a28155d447d2348", size = 300943, upload-time = "2026-11-06T15:03:32.042Z" },
+]
+
+[[package]]
+name = "openai"
+version = "3.60.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/25/e8930142b7d668fac78b1d7bd278f7142ea32c233ef762f9aebef0c07ea6/openai-3.60.0.tar.gz", hash = "sha256:077657587f7d2d55b943a135c3e183f87cf7dc66644caa3c0bbc2bde1fe65de9", size = 2430829, upload-time = "2026-11-26T07:10:37.418Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/c3/8190c2a9bc1776056b6d08b7d8d1782ad843ca3dc049b52de0f2053b546d/openai-3.60.0-py3-none-any.whl", hash = "sha256:476e79f256a4ce74848b7abae9f074352a69dca6e7e8987d565ee883a3b7e496", size = 2455657, upload-time = "2026-11-26T07:10:35.78Z" },
 ]
 
 [[package]]

@@ -108,8 +108,29 @@ def parse_findings(message, model: str = DEFAULT_MODEL) -> PiiFindings:
     return parse_json_message(message, PiiFindings, model)
 
 
+def mask_repeats(text: str, redactions: list[Redaction]) -> list[Redaction]:
+    """Also mask every other place a redacted value appears verbatim in the text.
+
+    Claude lists a value once, but agents often read it back ("so that's four one five, five five
+    five..."). Without this, only the first occurrence was masked and the read-back leaked.
+    Occurrences that overlap an existing redaction are left alone.
+    """
+    out = list(redactions)
+    for r in redactions:
+        start = text.find(r.original)
+        while start != -1:
+            end = start + len(r.original)
+            if not any(start < x.end and x.start < end for x in out):
+                out.append(Redaction(r.kind, start, end, r.original))
+            start = text.find(r.original, start + 1)
+    return sorted(out, key=lambda r: r.start)
+
+
 def apply_findings(text: str, regex_result: RedactionResult, findings: PiiFindings) -> tuple[RedactionResult, list[str]]:
-    """Add Claude's findings to the regex redactions. Returns the result and findings that couldn't be located."""
+    """Add Claude's findings to the regex redactions. Returns the result and findings that couldn't be located.
+
+    Every occurrence of a located finding is masked, not just the first.
+    """
     segments = _map_to_original(regex_result, text)
     redactions = list(regex_result.redactions)
     unlocated = []
@@ -120,7 +141,7 @@ def apply_findings(text: str, regex_result: RedactionResult, findings: PiiFindin
             continue
         redactions.append(Redaction(finding.kind.value, span[0], span[1], text[span[0]:span[1]]))
 
-    redactions.sort(key=lambda r: r.start)
+    redactions = mask_repeats(text, redactions)
     return RedactionResult(text=apply_redactions(text, redactions), redactions=redactions), unlocated
 
 

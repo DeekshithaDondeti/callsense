@@ -14,17 +14,23 @@ Each phase ends with something you can show, and a resume line you can defend in
 
 You can't evaluate an agent on "why did X spike?" unless you know the true answer. So generate the data with trends planted on purpose.
 
-- [x] `generate.py`: create about 3,000 synthetic calls spread over 12 weeks. Use Haiku with a fixed seed list of scenarios so the cost stays around $1–2. *(Code done: 2,874 calls planned, about $0.40 estimated through the Batch API. Not run yet.)*
+- [x] `generate.py`: create about 3,000 synthetic calls spread over 12 weeks. Use Haiku with a fixed seed list of scenarios so the cost stays around $1–2. *(2,874 calls, written by Meta's Muse Spark for $10.03 of free Meta credits.)*
 - [x] Plant 4–6 known events and record them in `evals/planted_events.json`. *(Five events plus two non-events.)* Examples:
   - week 7: a payment-gateway outage, so billing complaints triple for 3 days
   - week 9: a new refund policy, so negative sentiment rises on refund calls
   - a slow rise in "app login" issues from week 4 onwards
   - one region or product line with a much lower resolution rate
 - [x] Add realistic noise: longer calls, small speech-to-text errors, off-topic small talk.
-- [ ] Run every call through `redact` and then `analyze_call` (Haiku: about $0.22 per 1,000 calls). *(Code done in `synth/process.py`, about $0.80 estimated. Not run yet.)*
-- [ ] Run `synth/check.py` and put the results in the README: redaction recall at scale, label agreement, and whether each planted trend is visible in the analysed data.
+- [ ] Run every call through `redact` and then `analyze_call` (Haiku: about $0.22 per 1,000 calls). *(Done through the Batch API: $0.76 of Anthropic credits.)*
+- [x] Run `synth/check.py` and put the results in the README: redaction recall at scale, label agreement, and whether each planted trend is visible in the analysed data. *(789/789 planted values removed after a fix; four of five trends visible as designed, the login bug visible under "technical".)*
 
-**Done when:** you have about 3,000 analysed calls and a file stating the true trends.
+**Done when:** you have about 3,000 analysed calls and a file stating the true trends. **Done.**
+
+Carried forward from the results:
+- [ ] Decide whether a login broken by a bug is "account" or "technical", and say so in the field definition. Tune on dev cases only.
+- [ ] How-to questions are often analysed as "technical" instead of "other".
+- [ ] Stop the redaction second pass masking first names.
+- [ ] Write the phase 4 eval questions against the analysed data's categories (for example, the login trend sits under "technical").
 
 ## Phase 3: storage and pipeline (about 1 week). This is where your data-engineering experience shows.
 

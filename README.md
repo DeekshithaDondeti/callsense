@@ -94,7 +94,7 @@ It covers card numbers (with a checksum, so order numbers aren't masked), CVVs a
 Regex alone can't handle context: a date is only personal data when it's someone's birth date, and speech-to-text often writes numbers as words. So [`redact_llm.py`](src/callsense/redact_llm.py) adds a second pass:
 
 1. **Regex first (free).** Written-format data is masked locally and never sent to the API.
-2. **Claude second.** The masked transcript goes to Claude, which *lists* any remaining personal data. It never rewrites the transcript: each finding must match the text exactly, the code does the replacement, and anything Claude returns that isn't in the text is ignored.
+2. **Claude second.** The masked transcript goes to Claude, which *lists* any remaining personal data. It never rewrites the transcript: each finding must match the text exactly, the code does the replacement, and anything Claude returns that isn't in the text is ignored. Every place a found value appears is masked, so an agent reading a number back doesn't leak it.
 
 Measured on 22 labeled cases ([`evals/redaction_cases.json`](evals/redaction_cases.json)). A miss here is a privacy leak, so **recall** is the headline number:
 
@@ -112,12 +112,12 @@ The two-pass results were identical across two runs. On the 32 call transcripts,
 
 A CI test fails if a change makes the regex redactor leak any written-format item it catches today or remove a safe string.
 
-## Synthetic dataset with planted trends (phase 2, in progress)
+## Synthetic dataset with planted trends (phase 2)
 
 To test questions across many calls ("why did billing complaints spike in week 7?"), the true answer has to be known. So the dataset is built in two steps:
 
 1. **Plan in code (free, deterministic).** [`synth/plan.py`](src/callsense/synth/plan.py) decides every call's date, region, product, scenario (from a fixed list of 28 in [`synth/scenarios.py`](src/callsense/synth/scenarios.py)), how it ends, how the customer feels at the end, and any synthetic personal data they say. That gives 2,874 calls over 12 weeks (June 1 to August 23, 2026) for Kestrel Home, a fictional smart-home company.
-2. **Claude writes the dialogue only.** [`synth/generate.py`](src/callsense/synth/generate.py) asks Haiku to write each call to its spec, then adds speech-to-text noise in code (swapped homophones, dropped punctuation, repeated words, "um"). Because the code chose the outcome and mood, the trends don't depend on the model.
+2. **A model writes the dialogue only.** [`synth/generate.py`](src/callsense/synth/generate.py) asks Meta's Muse Spark ([`meta.py`](src/callsense/meta.py)) to write each call to its spec, then adds speech-to-text noise in code (swapped homophones, dropped punctuation, repeated words, "um"). Because the code chose the outcome and mood, the trends don't depend on the model. Using a different model family to write the calls also means Claude never analyses its own writing. On a 20-call sample, Muse Spark wrote exactly the requested length 17 times out of 20, against once for Claude Haiku.
 
 Five trends are planted on purpose and written to [`evals/planted_events.json`](evals/planted_events.json), with the numbers the plan produced:
 
@@ -135,17 +135,69 @@ After generation, [`synth/process.py`](src/callsense/synth/process.py) redacts e
 
 [`synth/check.py`](src/callsense/synth/check.py) then measures, from local files:
 
-- **Redaction at scale.** About 740 calls carry planted synthetic personal data (fake 555-01xx phone numbers, card networks' test card numbers, example.com emails, some read out as words). Each planted value counts as removed only if redaction covers every character of it.
+- **Redaction at scale.** 737 calls carry planted synthetic personal data (fake 555-01xx phone numbers, card networks' test card numbers, example.com emails, some read out as words). Each planted value counts as removed only if redaction covers every character of it.
 - **Label agreement** between what each call was written to be and what the analysis says.
 - **Whether each planted trend is visible in the analysed data**, which is what the analyst agent will query in phase 4.
 
-**Status:** the code and tests are done, but the paid run hasn't been done yet, so there are no results to report.
+### Results on the full dataset
+
+All 2,874 calls were generated, redacted and analysed, with no failed requests. Full numbers are in [`evals/results/dataset-check.json`](evals/results/dataset-check.json).
+
+**Are the planted trends visible in the analysed data?** This is the data an analyst agent will query, so it's the check that matters.
+
+| Event | Analysed data | Visible? |
+|---|---|---|
+| Payment outage, week 7 | 22.7 billing calls a day vs 7.7 on nearby weekdays (3.0x) | Yes |
+| Refund window cut, week 9 | Negative share of refund calls goes from 27% to 56% | Yes |
+| Midwest region | 32.6% of calls resolved vs 65–66% in the other regions | Yes |
+| Doorbell delay, weeks 10–11 | 48 and 44 calls a week vs 6–15 in other weeks | Yes |
+| Login bug, from week 4 | Calls about logging in go from 3–10 a week to 74 by week 12, but filed as **technical**, not account | Yes, under another category |
+| Cancellations flat (non-event) | 19–24 a week, with one week at 35 | Yes |
+| Technical flat (non-event) | 65 a week in week 1 to 148 in week 12 | **No**, because of the login calls |
+
+The login result is a finding about the field definitions, not the data. Haiku filed 319 of the 320 login-bug calls as *technical* (the app is broken), while the plan labelled them *account*, which the written definition lists for login problems. Both readings are defensible, so the definitions don't say what to do when a bug breaks login. The trend is still there: technical calls that aren't about logging in stay flat (53–80 a week), and calls about logging in grow every week from week 4. For an analyst agent that makes "why did technical calls double?" a realistic question, because the answer isn't in the category name.
+
+**How often does the analysis match what each call was written to be?**
+
+| Field | Agreement | Main disagreements |
+|---|---|---|
+| Resolved | **99.0%** | 21 resolved calls read as unresolved, 9 the other way |
+| Customer sentiment | 83.8% | 312 calm endings read as positive, 133 read as negative |
+| Issue category | 78.4% | 329 account calls read as technical (319 of them the login bug), 199 how-to questions ("does it work with my Echo?") read as technical |
+
+The sentiment misses match the phase 1 result: Haiku's weak spot is borderline endings. The how-to misses go against the written definition, which puts questions where nothing is broken under *other*. Both are candidates for the next round of definition work, tuned on the dev cases only.
+
+**Redaction at scale.** 789 planted values appeared in the transcripts. Every one is removed:
+
+| Kind | Written | Spoken as words |
+|---|---|---|
+| Card numbers | 35/35 | 12/12 |
+| Phone numbers | 86/86 | 18/18 |
+| Emails | 315/315 | 71/71 |
+| Street addresses | 230/230 | — |
+| Dates of birth | 22/22 | — |
+
+The first run leaked 7 of them (99.1% recall). All 7 were an agent reading a value back: Claude had found the value, but the code only masked its first occurrence. The fix masks every occurrence of a found value, and the stored data was repaired from the saved offsets without calling the API again. Those 7 calls were analysed before the fix, so the analysis step saw one read-back value in each; all of it is synthetic.
+
+Two smaller redaction flaws remain:
+- **Some first names get masked under a wrong label**, for example "James" as GOVERNMENT_ID: 37 names in 18 calls (0.6%). This is over-redaction, not a leak, but the labels are wrong and names aren't meant to be redacted.
+- **The generator sometimes invents personal data that wasn't planted**, such as "daniel22 at mailhub dot com" or a made-up street address. Redaction caught the cases seen, but the check can only measure planted values, so unplanned data isn't counted.
+
+**Cost of the full run**
+
+| Step | Model | Cost |
+|---|---|---|
+| Generate 2,874 calls | Meta Muse Spark | $10.03 of Meta credits |
+| Redact | Claude Haiku 5.5, Batch API | $0.23 |
+| Analyse | Claude Haiku 5.5, Batch API | $0.53 |
+
+Claude's share was $0.76, or $0.26 per 1,000 calls for redaction plus analysis together.
 
 ```bash
 uv run python -m callsense.synth.plan                # free: data/plan.jsonl and evals/planted_events.json
 uv run python -m callsense.synth.generate --dry-run  # free: cost estimate and an example prompt
-uv run python -m callsense.synth.generate            # about $0.40 estimated (Haiku, Batch API)
-uv run python -m callsense.synth.process             # about $0.80 estimated: redact, then analyse
+uv run python -m callsense.synth.generate            # about $10 of Meta credits (Muse Spark); --provider anthropic for Haiku
+uv run python -m callsense.synth.process             # about $0.76 of Anthropic credits: redact, then analyse
 uv run python -m callsense.synth.check               # free: writes evals/results/dataset-check.json
 ```
 
@@ -175,7 +227,7 @@ Iterating on the definitions took Haiku's dev score from 5/8 to 17/18 in an earl
 
 ## Run it
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an Anthropic API key.
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and an Anthropic API key. Generating the synthetic dataset also needs a [Meta Model API](https://dev.meta.ai/docs/) key as `META_API_KEY`.
 
 ```bash
 git clone https://github.com/DeekshithaDondeti/callsense.git
@@ -240,6 +292,7 @@ src/callsense/
   redact_llm.py Claude second pass for dates of birth and spoken forms
   evaluate_redaction.py  Redaction recall and false-positive check
   batch.py      Message Batches API runner that resumes interrupted batches
+  meta.py       Meta Model API client, used to write synthetic transcripts
   synth/        Synthetic dataset: scenarios, call plan, generation, redact + analyse, checks
 evals/
   cases.json    32 labeled synthetic transcripts (dev and test)

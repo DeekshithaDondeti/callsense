@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 import callsense.extract as extract
+import callsense.meta as meta
 from callsense.schema import CallAnalysis
 
 
@@ -69,6 +70,17 @@ def no_real_client(monkeypatch):
     monkeypatch.setattr(extract, "_client", None)
 
 
+@pytest.fixture(autouse=True)
+def no_real_meta_client(monkeypatch):
+    """Fail loudly if any test tries to build a real Meta Model API client (it would spend Meta credits)."""
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Tests must not create a real Meta client")
+
+    monkeypatch.setattr(meta, "OpenAI", forbidden)
+    monkeypatch.setattr(meta, "_client", None)
+
+
 def make_message(text: str, stop_reason: str = "end_turn", input_tokens: int = 1000, output_tokens: int = 200):
     """A plain Messages API reply (what messages.create and batch results return)."""
     return SimpleNamespace(
@@ -130,6 +142,33 @@ def fake_api(monkeypatch):
     def install(responder):
         client = SimpleNamespace(messages=FakeCreateMessages(responder))
         monkeypatch.setattr(extract, "_client", client)
+        return client
+
+    return install
+
+
+def make_chat_completion(text: str, finish_reason: str = "stop", prompt_tokens: int = 600, completion_tokens: int = 400):
+    """A Meta Model API (OpenAI-compatible) chat completion."""
+    return SimpleNamespace(
+        choices=[SimpleNamespace(finish_reason=finish_reason, message=SimpleNamespace(content=text))],
+        usage=SimpleNamespace(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens),
+    )
+
+
+@pytest.fixture
+def fake_meta(monkeypatch):
+    """Install a fake Meta client whose replies come from responder(params)."""
+    import callsense.meta as meta
+
+    def install(responder):
+        calls = []
+
+        def create(**params):
+            calls.append(params)
+            return responder(params)
+
+        client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)), calls=calls)
+        monkeypatch.setattr(meta, "_client", client)
         return client
 
     return install

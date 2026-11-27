@@ -1,7 +1,7 @@
 """The fixed seed list of call scenarios for Kestrel Home, a fictional smart-home company.
 
 Every synthetic call is one of these scenarios. The code decides the scenario, outcome and mood of
-each call; Claude only writes the dialogue. That keeps the trends in the data under our control.
+each call; a model only writes the dialogue. That keeps the trends in the data under our control.
 """
 
 from dataclasses import dataclass
@@ -193,9 +193,9 @@ SCENARIOS = [
     ),
     Scenario(
         "cancel_not_using", "cancellation",
-        "The customer barely uses the cameras and wants to downgrade from the annual plan to monthly.",
-        "The agent switches the plan to monthly from the next renewal.",
-        "Downgrades mid-term aren't possible; the customer has to wait until renewal and call again.",
+        "The customer barely uses the cameras and wants to downgrade from Kestrel Plus to the free plan.",
+        "The agent downgrades the account to the free plan from the next billing date.",
+        "The downgrade option errors out; the agent files a ticket and the accounts team will make the change.",
         ("Kestrel Plus",), 0.8,
     ),
     Scenario(

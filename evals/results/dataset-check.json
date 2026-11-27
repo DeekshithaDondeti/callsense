@@ -1,0 +1,220 @@
+{
+  "counts": {
+    "planned": 2874,
+    "generated": 2874,
+    "redacted": 2874,
+    "analyzed": 2874
+  },
+  "cost_usd": {
+    "generate": 10.0295,
+    "redact": 0.2286,
+    "analyze": 0.5269,
+    "total": 10.785
+  },
+  "calls_with_stt_noise": 1327,
+  "pii": {
+    "planted_values_present": 789,
+    "planted_values_leaked": 0,
+    "recall": 1.0,
+    "by_kind": {
+      "ADDRESS (written)": {
+        "present": 230,
+        "leaked": 0
+      },
+      "CARD_NUMBER (spoken)": {
+        "present": 12,
+        "leaked": 0
+      },
+      "CARD_NUMBER (written)": {
+        "present": 35,
+        "leaked": 0
+      },
+      "DATE_OF_BIRTH (written)": {
+        "present": 22,
+        "leaked": 0
+      },
+      "EMAIL (spoken)": {
+        "present": 71,
+        "leaked": 0
+      },
+      "EMAIL (written)": {
+        "present": 315,
+        "leaked": 0
+      },
+      "PHONE (spoken)": {
+        "present": 18,
+        "leaked": 0
+      },
+      "PHONE (written)": {
+        "present": 86,
+        "leaked": 0
+      }
+    },
+    "leaked_call_ids": [],
+    "regex_hits_left_in_redacted_text": {}
+  },
+  "label_agreement": {
+    "issue_category": {
+      "agreement": 0.784,
+      "disagreements": {
+        "account -> technical": 329,
+        "other -> technical": 199,
+        "billing -> cancellation": 40,
+        "other -> billing": 14,
+        "billing -> technical": 11,
+        "cancellation -> billing": 9,
+        "other -> account": 7,
+        "shipping -> other": 6
+      }
+    },
+    "customer_sentiment": {
+      "agreement": 0.838,
+      "disagreements": {
+        "neutral -> positive": 312,
+        "neutral -> negative": 133,
+        "positive -> neutral": 10,
+        "negative -> neutral": 9,
+        "positive -> negative": 1
+      }
+    },
+    "resolved": {
+      "agreement": 0.99,
+      "disagreements": {
+        "True -> False": 21,
+        "False -> True": 9
+      }
+    }
+  },
+  "events": {
+    "payment_outage": {
+      "measure": "calls analysed as billing per day",
+      "outage_days_mean": 22.67,
+      "other_weekdays_weeks_6_to_8_mean": 7.67,
+      "ratio": 2.96,
+      "visible": true
+    },
+    "refund_policy_change": {
+      "measure": "negative share of billing calls whose summary mentions a refund",
+      "calls_before_and_after": [
+        260,
+        112
+      ],
+      "negative_share_before": 0.269,
+      "negative_share_after": 0.562,
+      "visible": true
+    },
+    "app_login_rise": {
+      "measure": "account calls whose summary mentions logging or signing in, per week",
+      "per_week": [
+        3,
+        10,
+        7,
+        4,
+        5,
+        6,
+        3,
+        4,
+        4,
+        6,
+        3,
+        4
+      ],
+      "visible": false,
+      "per_week_any_category": [
+        3,
+        10,
+        7,
+        7,
+        18,
+        27,
+        31,
+        39,
+        46,
+        59,
+        60,
+        74
+      ],
+      "categories_of_login_calls": {
+        "account": 59,
+        "technical": 320,
+        "other": 2
+      }
+    },
+    "midwest_low_resolution": {
+      "measure": "share of calls analysed as resolved, by region",
+      "resolved_share": {
+        "Northeast": 0.664,
+        "Southeast": 0.651,
+        "Midwest": 0.326,
+        "West": 0.657
+      },
+      "visible": true
+    },
+    "doorbell_shipping_delay": {
+      "measure": "Kestrel Doorbell calls analysed as shipping, per week",
+      "per_week": [
+        11,
+        11,
+        15,
+        9,
+        10,
+        9,
+        7,
+        7,
+        6,
+        48,
+        44,
+        8
+      ],
+      "visible": true
+    },
+    "cancellations_flat": {
+      "per_week": [
+        22,
+        20,
+        24,
+        24,
+        20,
+        19,
+        20,
+        35,
+        22,
+        21,
+        23,
+        20
+      ],
+      "visible_as_flat": true
+    },
+    "technical_flat": {
+      "per_week": [
+        65,
+        66,
+        64,
+        77,
+        68,
+        88,
+        108,
+        92,
+        106,
+        106,
+        118,
+        148
+      ],
+      "visible_as_flat": false,
+      "per_week_excluding_login_calls": [
+        65,
+        66,
+        64,
+        75,
+        55,
+        67,
+        80,
+        57,
+        65,
+        53,
+        61,
+        78
+      ]
+    }
+  }
+}

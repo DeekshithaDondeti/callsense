@@ -111,11 +111,15 @@ def event_checks(rows: list[dict]) -> dict:
     neg_after = _share([r for r in refund if r["started_at"][:10] >= policy], negative)
 
     login = _weekly(rows, lambda r: a(r, "issue_category") == "account" and LOGIN_WORDS.search(a(r, "summary")))
+    about_login = lambda r: bool(LOGIN_WORDS.search(a(r, "summary")))  # noqa: E731
+    login_any = _weekly(rows, about_login)
+    login_categories = dict(Counter(a(r, "issue_category") for r in rows if about_login(r)))
     resolved_by_region = {g: _share([r for r in rows if r["region"] == g], lambda r: a(r, "resolved")) for g in REGIONS}
     others = [v for g, v in resolved_by_region.items() if g != p.LOW_RESOLUTION_REGION and v is not None]
     doorbell = _weekly(rows, lambda r: r["product"] == "Kestrel Doorbell" and a(r, "issue_category") == "shipping")
     cancellations = _weekly(rows, lambda r: a(r, "issue_category") == "cancellation")
     technical = _weekly(rows, lambda r: a(r, "issue_category") == "technical")
+    technical_not_login = _weekly(rows, lambda r: a(r, "issue_category") == "technical" and not about_login(r))
 
     def flat(weekly):
         mean = _mean(weekly)
@@ -145,6 +149,9 @@ def event_checks(rows: list[dict]) -> dict:
             "measure": "account calls whose summary mentions logging or signing in, per week",
             "per_week": login,
             "visible": (_mean(login[9:12]) or 0) > 2 * max(_mean(login[3:6]) or 0, 1) and (_mean(login[:3]) or 0) < (_mean(login[9:12]) or 0) / 4,
+            # Added after the full run: the analysis filed the login bug under technical, not account.
+            "per_week_any_category": login_any,
+            "categories_of_login_calls": login_categories,
         },
         "midwest_low_resolution": {
             "measure": "share of calls analysed as resolved, by region",
@@ -157,7 +164,11 @@ def event_checks(rows: list[dict]) -> dict:
             "visible": _mean(doorbell[9:11]) is not None and _mean(doorbell[9:11]) >= 2 * max(_mean(doorbell[:9] + doorbell[11:]) or 0, 1),
         },
         "cancellations_flat": {"per_week": cancellations, "visible_as_flat": flat(cancellations)},
-        "technical_flat": {"per_week": technical, "visible_as_flat": flat(technical)},
+        "technical_flat": {
+            "per_week": technical,
+            "visible_as_flat": flat(technical),
+            "per_week_excluding_login_calls": technical_not_login,
+        },
     }
 
 

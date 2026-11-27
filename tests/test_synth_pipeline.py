@@ -7,7 +7,7 @@ import pytest
 from callsense import extract, redact_llm
 from callsense.synth import check, generate, plan, process, store
 
-from .conftest import make_analysis, make_message
+from .conftest import make_analysis, make_chat_completion, make_message
 
 
 @pytest.fixture
@@ -70,13 +70,13 @@ def make_responder(small_plan, sent_to_analysis=None, bad_ids=()):
 def test_generate_writes_transcripts_and_skips_them_on_rerun(fake_api, data_dir, small_plan):
     client = fake_api(make_responder(small_plan))
 
-    assert generate.main(["--yes", "--sync"]) == 0
+    assert generate.main(["--provider", "anthropic", "--yes", "--sync"]) == 0
     rows = store.read_jsonl(data_dir["CALLS_PATH"])
     assert len(rows) == len(small_plan)
     assert all(all(r["pii_present"]) for r in rows)  # every planted value made it in verbatim
     sent = len(client.messages.calls)
 
-    generate.main(["--yes", "--sync"])
+    generate.main(["--provider", "anthropic", "--yes", "--sync"])
     assert len(client.messages.calls) == sent  # nothing re-sent
     assert len(store.read_jsonl(data_dir["CALLS_PATH"])) == len(small_plan)
 
@@ -94,7 +94,7 @@ def test_batch_generation_is_billed_at_half_price(fake_api, data_dir, small_plan
     monkeypatch.setattr("callsense.batch.time.sleep", lambda s: None)
     fake_api(make_responder(small_plan))
 
-    generate.main(["--yes", "--limit", "3"])
+    generate.main(["--provider", "anthropic", "--yes", "--limit", "3"])
 
     rows = store.read_jsonl(data_dir["CALLS_PATH"])
     assert len(rows) == 3
@@ -106,7 +106,7 @@ def test_invalid_transcripts_are_not_saved(fake_api, data_dir, small_plan, capsy
     bad = small_plan[0]["agent_name"]
     fake_api(make_responder(small_plan, bad_ids=[bad]))
 
-    generate.main(["--yes", "--sync"])
+    generate.main(["--provider", "anthropic", "--yes", "--sync"])
 
     saved = {r["call_id"] for r in store.read_jsonl(data_dir["CALLS_PATH"])}
     assert small_plan[0]["call_id"] not in saved
@@ -132,7 +132,7 @@ def test_process_redacts_before_analysis_and_check_finds_no_leaks(fake_api, data
     monkeypatch.setattr("callsense.batch.time.sleep", lambda s: None)
     sent_to_analysis = []
     client = fake_api(make_responder(small_plan, sent_to_analysis))
-    generate.main(["--yes", "--sync"])
+    generate.main(["--provider", "anthropic", "--yes", "--sync"])
 
     assert process.main(["--yes"]) == 0
 
@@ -166,3 +166,92 @@ def test_partial_redaction_counts_as_a_leak():
     value = "four one five, five five five"
     assert check.fully_redacted(raw, value, whole)
     assert not check.fully_redacted(raw, value, half)
+
+
+def test_refund_policy_line_only_on_refund_calls():
+    full = plan.build_plan()
+    downgrade = next(c for c in full if c["scenario"] == "cancel_not_using")
+    refund = next(c for c in full if c["scenario"] == "billing_refund_request")
+    assert "Refund policy" not in generate.call_brief(downgrade)
+    assert f"refunds within {refund['refund_window_days']} days" in generate.call_brief(refund)
+    assert f"exactly {refund['lines']} lines" in generate.call_brief(refund)
+
+
+def meta_responder(small_plan, **kwargs):
+    """Answer Meta chat completions with the same generator as the Claude fake."""
+    claude = make_responder(small_plan, **kwargs)
+
+    def respond(params):
+        system, user = params["messages"][0]["content"], params["messages"][1]["content"]
+        message = claude({"system": system, "messages": [{"role": "user", "content": user}]})
+        return make_chat_completion(message.content[0].text)
+
+    return respond
+
+
+def test_meta_is_the_default_and_never_touches_anthropic(fake_meta, data_dir, small_plan):
+    client = fake_meta(meta_responder(small_plan))  # no Anthropic fake installed: any Claude call would fail
+
+    assert generate.main(["--yes"]) == 0
+
+    rows = store.read_jsonl(data_dir["CALLS_PATH"])
+    assert len(rows) == len(small_plan)
+    assert {r["provider"] for r in rows} == {"meta"} and {r["model"] for r in rows} == {"muse-spark-1.3"}
+    assert all(all(r["pii_present"]) for r in rows)
+    sent = client.calls[0]
+    assert sent["reasoning_effort"] == "minimal" and sent["messages"][0]["role"] == "system"
+    expected = (600 * 1.25 + 400 * 4.25) / 1_000_000
+    assert rows[0]["cost_usd"] == pytest.approx(expected, abs=1e-6)
+
+    generate.main(["--yes"])
+    assert len(client.calls) == len(small_plan)  # rerun skips calls already written
+
+
+def test_meta_cut_off_or_failed_replies_are_not_saved(fake_meta, data_dir, small_plan, capsys):
+    import httpx2
+    import openai
+
+    first, second = small_plan[0]["call_id"], small_plan[1]["call_id"]
+    good = meta_responder(small_plan)
+
+    def respond(params):
+        user = params["messages"][1]["content"]
+        if f"Customer: {small_plan[0]['customer_name']}." in user and small_plan[0]["situation"] in user:
+            return make_chat_completion("Agent: hi", finish_reason="length")
+        if f"Customer: {small_plan[1]['customer_name']}." in user and small_plan[1]["situation"] in user:
+            raise openai.APIConnectionError(request=httpx2.Request("POST", "https://api.meta.ai/v1/chat/completions"))
+        return good(params)
+
+    fake_meta(respond)
+    generate.main(["--yes"])
+
+    saved = {r["call_id"] for r in store.read_jsonl(data_dir["CALLS_PATH"])}
+    assert first not in saved and second not in saved
+    out = capsys.readouterr().out
+    assert "finish_reason=length" in out and "APIConnectionError" in out
+
+
+def test_meta_dry_run_estimate_uses_meta_prices(data_dir, capsys):
+    generate.main(["--dry-run"])
+    out = capsys.readouterr().out
+    assert "muse-spark-1.3 (Meta Model API)" in out and "of Meta credits" in out
+
+
+def test_repair_masks_read_back_values_from_stored_offsets(data_dir):
+    raw = "Customer: It's oh one one two.\nAgent: So oh one one two, got it."
+    start = raw.index("oh one one two")
+    store.write_jsonl(data_dir["CALLS_PATH"], [{"call_id": "c1", "transcript": raw}])
+    old_text = raw[:start] + "[PHONE]" + raw[start + 14:]
+    store.write_jsonl(data_dir["REDACTED_PATH"], [{
+        "call_id": "c1", "transcript": old_text,
+        "redactions": [{"kind": "PHONE", "start": start, "end": start + 14}],
+    }])
+
+    assert process.repair_redactions() == (1, 1)
+
+    row = store.read_jsonl(data_dir["REDACTED_PATH"])[0]
+    assert row["transcript"] == "Customer: It's [PHONE].\nAgent: So [PHONE], got it."
+    assert len(row["redactions"]) == 2
+    backup = store.read_jsonl(data_dir["REDACTED_PATH"].with_name("redacted.before-repeat-fix.jsonl"))
+    assert backup[0]["transcript"] == old_text
+    assert process.repair_redactions() == (0, 0)  # running it again changes nothing

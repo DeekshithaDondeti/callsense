@@ -63,6 +63,31 @@ def test_repeated_value_redacts_each_occurrence_once_per_finding(fake_client):
     assert result.text == "Customer: [PHONE]. Again, [PHONE]."
 
 
+def test_a_value_listed_once_is_masked_everywhere_it_is_read_back(fake_client):
+    # Found in the full run: the agent reads the number back, Claude lists it once.
+    text = (
+        "Customer: It's four one five, five five five, oh one one two.\n"
+        "Agent: Got it, I've noted four one five, five five five, oh one one two."
+    )
+    fake_client(make_response(parsed=findings(("four one five, five five five, oh one one two", "PHONE"))))
+
+    result, _, unlocated = redact_with_claude(text)
+
+    assert result.text == "Customer: It's [PHONE].\nAgent: Got it, I've noted [PHONE]."
+    assert unlocated == [] and len(result.redactions) == 2
+
+
+def test_mask_repeats_skips_occurrences_overlapping_another_redaction():
+    from callsense.redact import Redaction
+    from callsense.redact_llm import mask_repeats
+
+    text = "born March 3, 1990; card ends March 3, 1990x"
+    first = Redaction("DATE_OF_BIRTH", 5, 18, "March 3, 1990")
+    other = Redaction("CARD_NUMBER", 30, 44, text[30:44])
+    result = mask_repeats(text, [first, other])
+    assert result == [first, other]
+
+
 def test_no_findings_returns_regex_result(fake_client):
     text = "Customer: Call 555-0199."
     fake_client(make_response(parsed=findings()))
